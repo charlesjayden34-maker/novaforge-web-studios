@@ -2,6 +2,8 @@ const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { Request } = require('../models/Request');
 const { User } = require('../models/User');
+const { adminMutationLimiter } = require('../middleware/rateLimit');
+const { isSafeHttpUrl, isValidObjectId } = require('../utils/validation');
 
 const router = express.Router();
 
@@ -17,24 +19,29 @@ router.get('/requests', async (_req, res, next) => {
   }
 });
 
-router.patch('/requests/:id', async (req, res, next) => {
+router.patch('/requests/:id', adminMutationLimiter, async (req, res, next) => {
   try {
     const { id } = req.params;
+    if (!isValidObjectId(id)) return res.status(400).json({ error: 'Invalid request id' });
     const { status, paymentStatus, deliveryUrl } = req.body || {};
 
     const patch = {};
     if (status !== undefined) {
-      if (!['pending', 'in_progress', 'completed'].includes(String(status)))
+      if (!['pending', 'in_progress', 'completed', 'cancelled'].includes(String(status)))
         return res.status(400).json({ error: 'Invalid status' });
       patch.status = String(status);
     }
     if (paymentStatus !== undefined) {
-      if (!['unpaid', 'partial', 'paid'].includes(String(paymentStatus)))
+      if (!['unpaid', 'paid', 'cancelled'].includes(String(paymentStatus)))
         return res.status(400).json({ error: 'Invalid payment status' });
       patch.paymentStatus = String(paymentStatus);
     }
     if (deliveryUrl !== undefined) {
-      patch.deliveryUrl = String(deliveryUrl || '').trim();
+      const value = String(deliveryUrl || '').trim();
+      if (value && !isSafeHttpUrl(value)) {
+        return res.status(400).json({ error: 'Delivery URL must be a valid http(s) URL' });
+      }
+      patch.deliveryUrl = value;
     }
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ error: 'No updates provided' });
@@ -50,9 +57,28 @@ router.patch('/requests/:id', async (req, res, next) => {
         .status(400)
         .json({ error: 'Cannot mark completed until payment status is paid' });
     }
+    if (nextStatus === 'cancelled' && !patch.paymentStatus) {
+      patch.paymentStatus = 'cancelled';
+    }
 
     const request = await Request.findByIdAndUpdate(id, patch, { new: true }).lean();
     res.json({ request });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/requests/:id/cancel', adminMutationLimiter, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) return res.status(400).json({ error: 'Invalid request id' });
+    const request = await Request.findByIdAndUpdate(
+      id,
+      { status: 'cancelled', paymentStatus: 'cancelled' },
+      { new: true }
+    ).lean();
+    if (!request) return res.status(404).json({ error: 'Not found' });
+    return res.json({ request });
   } catch (e) {
     next(e);
   }
@@ -67,9 +93,10 @@ router.get('/users', async (_req, res, next) => {
   }
 });
 
-router.patch('/users/:id', async (req, res, next) => {
+router.patch('/users/:id', adminMutationLimiter, async (req, res, next) => {
   try {
     const { id } = req.params;
+    if (!isValidObjectId(id)) return res.status(400).json({ error: 'Invalid user id' });
     const { role } = req.body || {};
     if (!role) return res.status(400).json({ error: 'Missing role' });
     if (!['user', 'admin'].includes(String(role)))

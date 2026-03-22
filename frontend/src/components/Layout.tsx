@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { siteConfig } from '../config/site';
 
 const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
   `text-sm font-medium transition ${
@@ -42,18 +43,15 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     setMenuOpen(false);
   };
 
-  const contactEmail = 'nathanwhittaker141@gmail.com';
-  const contactName = 'Ante';
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-50">
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/85">
         <div className="container-max flex items-center justify-between py-4 gap-4">
           <Link to="/" className="flex items-center gap-2 shrink-0" onClick={() => setMenuOpen(false)}>
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-brand-500 to-sky-400 shadow-lg shadow-brand-500/40" />
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-brand-500 via-fuchsia-500 to-sky-400 shadow-lg shadow-brand-500/40" />
             <div>
               <p className="text-sm font-semibold tracking-wide uppercase text-slate-800 dark:text-slate-200">
-                NovaForge
+                {siteConfig.brand.shortName}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">Web Studios</p>
             </div>
@@ -83,7 +81,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 </NavLink>
                 <Link
                   to="/register"
-                  className="rounded-full bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white shadow-md shadow-brand-500/30 hover:bg-brand-400"
+                  className="nf-btn-primary px-4 py-1.5 shadow-md shadow-brand-500/30"
                 >
                   Register
                 </Link>
@@ -146,7 +144,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   </NavLink>
                   <Link
                     to="/register"
-                    className="rounded-full bg-brand-500 px-4 py-2 text-center text-sm font-semibold text-white"
+                    className="nf-btn-primary text-center"
                     onClick={() => setMenuOpen(false)}
                   >
                     Register
@@ -162,21 +160,21 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         )}
       </header>
       <main className="container-max py-10 min-h-[60vh]">{children}</main>
-      <footer className="border-t border-slate-200 bg-white py-8 mt-auto dark:border-slate-800 dark:bg-slate-950">
-        <div className="container-max flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-500">
-          <div className="flex flex-col items-center sm:items-start gap-1">
-            <p>© {new Date().getFullYear()} NovaForge Web Studios. All rights reserved.</p>
+      <footer className="mt-auto border-t border-slate-200 bg-white py-8 dark:border-slate-800 dark:bg-slate-950">
+        <div className="container-max flex flex-col gap-4 text-xs text-slate-500 dark:text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col items-center gap-1 sm:items-start">
+            <p>© {new Date().getFullYear()} {siteConfig.brand.name}. All rights reserved.</p>
             <p>
-              Contact {contactName}:{' '}
+              Contact {siteConfig.contact.name}:{' '}
               <a
                 className="underline underline-offset-4 hover:text-slate-700 dark:hover:text-slate-300"
-                href={`mailto:${contactEmail}`}
+                href={`mailto:${siteConfig.contact.email}`}
               >
-                {contactEmail}
+                {siteConfig.contact.email}
               </a>
             </p>
           </div>
-          <p>React · Tailwind · Node · MongoDB · Stripe</p>
+          <p>Custom websites, client portals, and growth-focused redesigns.</p>
         </div>
       </footer>
     </div>

@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const helmet = require('helmet');
 
 const { connectDb } = require('./services/db');
 const { authRouter } = require('./routes/auth');
@@ -10,24 +11,39 @@ const { requestsRouter } = require('./routes/requests');
 const { adminRouter } = require('./routes/admin');
 const { paymentsRouter } = require('./routes/payments');
 const { stripeWebhookHandler } = require('./routes/stripeWebhook');
+const { validateEnv } = require('./config/env');
+const { generalLimiter } = require('./middleware/rateLimit');
+
+const env = validateEnv();
 
 const app = express();
 
 function getCorsOrigin() {
   const raw = process.env.CORS_ORIGIN;
-  if (!raw) return true;
+  if (!raw) return env.isProduction ? [] : true;
   const origins = raw
     .split(',')
     .map((v) => v.trim())
     .filter(Boolean);
-  return origins.length > 0 ? origins : true;
+  if (origins.length === 0) return env.isProduction ? [] : true;
+  return origins;
 }
 
+app.use(
+  helmet({
+    contentSecurityPolicy: false
+  })
+);
 app.use(cors({ origin: getCorsOrigin(), credentials: true }));
 app.use(morgan('dev'));
+app.use(generalLimiter);
 
 // Stripe webhook must use raw body
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler);
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json', limit: '100kb' }),
+  stripeWebhookHandler
+);
 
 app.use(express.json({ limit: '1mb' }));
 
@@ -41,7 +57,11 @@ app.use('/api/payments', paymentsRouter);
 app.use((err, _req, res, _next) => {
   // eslint-disable-next-line no-console
   console.error(err);
-  res.status(err.statusCode || 500).json({ error: err.message || 'Server error' });
+  const statusCode = Number(err?.statusCode || 500);
+  if (statusCode >= 500) {
+    return res.status(500).json({ error: 'Server error' });
+  }
+  return res.status(statusCode).json({ error: err?.message || 'Request failed' });
 });
 
 const port = process.env.PORT || 4000;

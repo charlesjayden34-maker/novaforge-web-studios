@@ -7,6 +7,7 @@ async function stripeWebhookHandler(req, res) {
 
   const stripe = getStripe();
   const sig = req.headers['stripe-signature'];
+  if (!sig) return res.status(400).send('Missing signature');
 
   let event;
   try {

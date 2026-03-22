@@ -5,7 +5,13 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['system-ui', 'ui-sans-serif', 'system-ui', 'sans-serif']
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+      },
+      boxShadow: {
+        soft: '0 10px 35px -18px rgba(15, 23, 42, 0.35)'
+      },
+      borderRadius: {
+        xl2: '1rem'
       },
       colors: {
         brand: {

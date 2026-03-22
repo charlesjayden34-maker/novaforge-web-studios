@@ -6,21 +6,25 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "seed-admin": "node scripts/seedAdmin.js"
+    "seed-admin": "node scripts/seedAdmin.js",
+    "campaign:send": "node scripts/sendCampaign.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "imapflow": "^1.2.16",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
     "morgan": "^1.10.0",
     "nodemailer": "^6.9.16",
-    "stripe": "^16.12.0"
+    "stripe": "^16.12.0",
+    "validator": "^13.12.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.7"
   }
 }
-

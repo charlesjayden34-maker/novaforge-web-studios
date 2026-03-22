@@ -1,16 +1,21 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const validator = require('validator');
 const { User } = require('../models/User');
 const { signToken, requireAuth } = require('../middleware/auth');
 const { sendPasswordResetEmail } = require('../services/email');
+const { authLimiter, forgotPasswordLimiter } = require('../middleware/rateLimit');
+const { validateEnv } = require('../config/env');
 
 const router = express.Router();
+const env = validateEnv();
 
-router.post('/register', async (req, res, next) => {
+router.post('/register', authLimiter, async (req, res, next) => {
   try {
     const { name, email, password } = req.body || {};
     if (!name || !email || !password) return res.status(400).json({ error: 'Missing fields' });
+    if (!validator.isEmail(String(email))) return res.status(400).json({ error: 'Invalid email' });
     if (String(password).length < 8)
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
@@ -35,10 +40,11 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', authLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+    if (!validator.isEmail(String(email))) return res.status(400).json({ error: 'Invalid email' });
 
     const user = await User.findOne({ email: String(email).toLowerCase().trim() });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
@@ -56,10 +62,11 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-router.post('/forgot-password', async (req, res, next) => {
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res, next) => {
   try {
     const { email } = req.body || {};
     if (!email) return res.status(400).json({ error: 'Email is required' });
+    if (!validator.isEmail(String(email))) return res.status(400).json({ error: 'Invalid email' });
 
     const normalizedEmail = String(email).toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
@@ -84,8 +91,8 @@ router.post('/forgot-password', async (req, res, next) => {
 
     const mailSent = await sendPasswordResetEmail({ email: normalizedEmail, resetUrl });
 
-    // Dev fallback when SMTP is not configured.
-    if (!mailSent) {
+    // Dev fallback when SMTP is not configured and explicit override is enabled.
+    if (!mailSent && !env.isProduction && env.allowDevResetTokenResponse) {
       return res.json({
         ok: true,
         message:

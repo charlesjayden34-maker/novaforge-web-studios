@@ -22,15 +22,22 @@ async function sendAdminNotification({ request }) {
   const transport = getTransport();
   if (!transport || !to || !from) return;
 
-  const subject = `New NovaForge request: ${request.projectType} (${request.budgetRange})`;
+  const subject = `New NovaForge request: ${request.projectType} (${request.websiteTier} - $${request.websitePrice})`;
   const text = [
     'New client request received:',
     '',
     `Name: ${request.name}`,
     `Email: ${request.email}`,
     `Project type: ${request.projectType}`,
-    `Budget: ${request.budgetRange}`,
-    `Preferred payment: ${request.preferredPaymentMethod || 'card'}`,
+    `Website tier: ${request.websiteTier}`,
+    `Fixed price: $${request.websitePrice}`,
+    `Preferred payment: ${request.preferredPaymentMethod || 'bank_transfer'}`,
+    `Payer name: ${request.paymentSubmission?.payerFullName || '-'}`,
+    `Payer bank identifier: ${request.paymentSubmission?.payerBankIdentifier || '-'}`,
+    `Payer bank: ${request.paymentSubmission?.payerBankName || '-'}`,
+    `Transfer reference: ${request.paymentSubmission?.transferReference || '-'}`,
+    `Transfer date: ${request.paymentSubmission?.transferDate || '-'}`,
+    `Payment proof URL: ${request.paymentSubmission?.paymentProofUrl || '-'}`,
     '',
     'Description:',
     request.description

@@ -7,10 +7,19 @@ type Req = {
   name: string;
   email: string;
   projectType: string;
-  budgetRange: string;
+  websiteTier: 'starter' | 'growth' | 'premium';
+  websitePrice: number;
   preferredPaymentMethod?: string;
   status: string;
-  paymentStatus?: 'unpaid' | 'partial' | 'paid';
+  paymentStatus?: 'unpaid' | 'paid' | 'cancelled';
+  paymentSubmission?: {
+    payerFullName?: string;
+    payerBankIdentifier?: string;
+    payerBankName?: string;
+    transferReference?: string;
+    transferDate?: string;
+    paymentProofUrl?: string;
+  };
   deliveryUrl?: string;
   description: string;
   createdAt?: string;
@@ -21,6 +30,12 @@ type UserRow = {
   name: string;
   email: string;
   role: string;
+};
+
+const tierName: Record<Req['websiteTier'], string> = {
+  starter: 'Starter',
+  growth: 'Growth',
+  premium: 'Premium'
 };
 
 export const AdminDashboard = () => {
@@ -74,6 +89,15 @@ export const AdminDashboard = () => {
     }
   };
 
+  const cancelRequest = async (id: string) => {
+    try {
+      await api.post(`/api/admin/requests/${id}/cancel`);
+      await load();
+    } catch (e: any) {
+      setErr(e?.response?.data?.error || 'Cancel failed.');
+    }
+  };
+
   return (
     <>
       <Helmet>
@@ -101,11 +125,13 @@ export const AdminDashboard = () => {
                 <tr>
                   <th className="px-4 py-3">Client</th>
                   <th className="px-4 py-3">Project</th>
-                  <th className="px-4 py-3">Budget</th>
+                  <th className="px-4 py-3">Tier</th>
                   <th className="px-4 py-3">Pay method</th>
+                  <th className="px-4 py-3">Payment proof</th>
                   <th className="px-4 py-3">Payment</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Delivery URL</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -116,9 +142,29 @@ export const AdminDashboard = () => {
                       <div className="text-xs text-slate-500">{r.email}</div>
                     </td>
                     <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{r.projectType}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{r.budgetRange}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                      {tierName[r.websiteTier]} (${Number(r.websitePrice || 0).toLocaleString()})
+                    </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                       {(r.preferredPaymentMethod || 'bank_transfer').replace('_', ' ')}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
+                      <div>{r.paymentSubmission?.payerFullName || '-'}</div>
+                      <div>{r.paymentSubmission?.payerBankName || '-'}</div>
+                      <div>{r.paymentSubmission?.payerBankIdentifier || '-'}</div>
+                      <div>Ref: {r.paymentSubmission?.transferReference || '-'}</div>
+                      {r.paymentSubmission?.paymentProofUrl ? (
+                        <a
+                          href={r.paymentSubmission.paymentProofUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-brand-600 underline underline-offset-2 dark:text-brand-300"
+                        >
+                          Open proof
+                        </a>
+                      ) : (
+                        <div>-</div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <select
@@ -131,8 +177,8 @@ export const AdminDashboard = () => {
                         className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
                       >
                         <option value="unpaid">unpaid</option>
-                        <option value="partial">partial</option>
                         <option value="paid">paid</option>
+                        <option value="cancelled">cancelled</option>
                       </select>
                     </td>
                     <td className="px-4 py-3">
@@ -144,6 +190,7 @@ export const AdminDashboard = () => {
                         <option value="pending">pending</option>
                         <option value="in_progress">in progress</option>
                         <option value="completed">completed</option>
+                        <option value="cancelled">cancelled</option>
                       </select>
                     </td>
                     <td className="px-4 py-3">
@@ -167,7 +214,17 @@ export const AdminDashboard = () => {
                         </button>
                       </div>
                     </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => cancelRequest(r._id)}
+                        className="rounded-full border border-rose-400 px-3 py-1 text-[11px] font-semibold text-rose-600 dark:text-rose-300"
+                      >
+                        Cancel request
+                      </button>
+                    </td>
                   </tr>
+                  
                 ))}
               </tbody>
             </table>

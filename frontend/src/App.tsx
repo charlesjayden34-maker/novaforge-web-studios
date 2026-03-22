@@ -15,7 +15,14 @@ function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/request" element={<RequestPage />} />
+        <Route
+          path="/request"
+          element={
+            <ProtectedRoute>
+              <RequestPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/login" element={<AuthLogin />} />
         <Route path="/register" element={<AuthRegister />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
