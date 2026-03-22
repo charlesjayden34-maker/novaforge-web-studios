@@ -1,0 +1,29 @@
+# Ignore everything in user home by default.
+*
+
+# Keep repository metadata and selected project files.
+!.gitignore
+!README.md
+!render.yaml
+!backend/
+!backend/**
+!frontend/
+!frontend/**
+
+# Ignore generated/runtime artifacts inside included directories.
+backend/node_modules/
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/npm-debug.log*
+backend/yarn-debug.log*
+backend/yarn-error.log*
+
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
