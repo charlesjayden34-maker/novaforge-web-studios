@@ -83,14 +83,20 @@ export const RequestPage = () => {
       !form.projectType ||
       !form.websiteTier ||
       !form.preferredPaymentMethod ||
-      !form.payerFullName ||
-      !form.payerBankIdentifier ||
-      !form.transferReference ||
-      !form.transferDate ||
-      !form.paymentProofUrl ||
       !form.description
     ) {
       setError('Please fill in all required fields.');
+      return;
+    }
+    if (
+      form.preferredPaymentMethod === 'bank_transfer' &&
+      (!form.payerFullName ||
+        !form.payerBankIdentifier ||
+        !form.transferReference ||
+        !form.transferDate ||
+        !form.paymentProofUrl)
+    ) {
+      setError('Please fill in all required bank transfer fields.');
       return;
     }
 
@@ -101,13 +107,16 @@ export const RequestPage = () => {
         projectType: form.projectType,
         websiteTier: form.websiteTier,
         preferredPaymentMethod: form.preferredPaymentMethod,
-        paymentSubmission: {
-          payerFullName: form.payerFullName,
-          payerBankIdentifier: form.payerBankIdentifier,
-          transferReference: form.transferReference,
-          transferDate: form.transferDate,
-          paymentProofUrl: form.paymentProofUrl
-        },
+        paymentSubmission:
+          form.preferredPaymentMethod === 'bank_transfer'
+            ? {
+                payerFullName: form.payerFullName,
+                payerBankIdentifier: form.payerBankIdentifier,
+                transferReference: form.transferReference,
+                transferDate: form.transferDate,
+                paymentProofUrl: form.paymentProofUrl
+              }
+            : undefined,
         description: form.description
       });
       setSuccess('Thanks! Your project request has been received.');
@@ -142,7 +151,7 @@ export const RequestPage = () => {
             Request a Website
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Pick your package, submit your transfer details, and we start once payment is verified.
+            Pick your package and payment method. We start once payment is verified.
           </p>
           <p className="text-xs rounded-lg border border-amber-300/50 bg-amber-100/70 px-3 py-2 text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300">
             Full-payment policy: no partial payments. Delivery is unlocked only after payment is confirmed.
@@ -257,15 +266,20 @@ export const RequestPage = () => {
             >
               Preferred payment method<span className="text-brand-500 dark:text-brand-400">*</span>
             </label>
-            <input
+            <select
               id="preferredPaymentMethod"
               name="preferredPaymentMethod"
-              readOnly
-              value="Bank transfer only"
+              value={form.preferredPaymentMethod}
+              onChange={handleChange}
               className="nf-field"
-            />
+            >
+              <option value="bank_transfer">Bank transfer</option>
+              <option value="paypal">PayPal</option>
+            </select>
           </div>
 
+          {form.preferredPaymentMethod === 'bank_transfer' && (
+            <>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-slate-800 dark:text-slate-200" htmlFor="payerFullName">
@@ -347,6 +361,14 @@ export const RequestPage = () => {
                 className="nf-field"
               />
           </div>
+            </>
+          )}
+
+          {form.preferredPaymentMethod === 'paypal' && (
+            <p className="rounded-lg border border-sky-300/50 bg-sky-100/70 px-3 py-2 text-xs text-sky-900 dark:border-sky-700/60 dark:bg-sky-900/20 dark:text-sky-300">
+              You will complete full payment through PayPal from your dashboard after submitting this request.
+            </p>
+          )}
 
           <div className="space-y-1.5">
             <label

@@ -11,6 +11,10 @@ type Req = {
   preferredPaymentMethod?: string;
   status: string;
   paymentStatus?: 'unpaid' | 'paid' | 'cancelled';
+  payments?: Array<{
+    provider?: 'stripe' | 'paypal';
+    status?: string;
+  }>;
   deliveryUrl?: string;
   description: string;
   createdAt?: string;
@@ -33,6 +37,7 @@ export const ClientDashboard = () => {
   const [requests, setRequests] = useState<Req[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setErr(null);
@@ -50,6 +55,36 @@ export const ClientDashboard = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isPaypalSuccess = params.get('paypal') === 'success';
+    const orderId = params.get('token');
+    if (!isPaypalSuccess || !orderId) return;
+
+    const capture = async () => {
+      try {
+        await api.post('/api/paypal/capture-order', { orderId });
+        window.history.replaceState({}, '', '/dashboard');
+        await load();
+      } catch {
+        setErr('PayPal payment could not be confirmed yet. Please try again.');
+      }
+    };
+    capture();
+  }, [load]);
+
+  const payWithPaypal = async (requestId: string) => {
+    setErr(null);
+    setPayingId(requestId);
+    try {
+      const res = await api.post<{ approveUrl: string }>('/api/paypal/create-order', { requestId });
+      window.location.href = res.data.approveUrl;
+    } catch {
+      setErr('Could not start PayPal checkout. Please try again.');
+      setPayingId(null);
+    }
+  };
 
   return (
     <>
@@ -114,10 +149,34 @@ export const ClientDashboard = () => {
                 </p>
                 {(r.paymentStatus || 'unpaid') !== 'paid' ? (
                   <div className="mt-2 space-y-2 text-slate-600 dark:text-slate-300">
+                    {r.preferredPaymentMethod === 'paypal' &&
+                      r.payments?.some(
+                        (payment) =>
+                          payment.provider === 'paypal' && String(payment.status).includes('complete')
+                      ) && (
+                        <p className="text-sky-700 dark:text-sky-300">
+                          PayPal payment detected. Waiting for admin approval.
+                        </p>
+                      )}
                     {(r.paymentStatus || 'unpaid') === 'cancelled' || r.status === 'cancelled' ? (
                       <p className="text-rose-600 dark:text-rose-300">
                         This request was cancelled by admin. Contact support to reopen.
                       </p>
+                    ) : r.preferredPaymentMethod === 'paypal' ? (
+                      <>
+                        <p>
+                          Complete payment with PayPal. After successful checkout, payment status will update
+                          and delivery will unlock.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => payWithPaypal(r._id)}
+                          disabled={payingId === r._id}
+                          className="nf-btn-primary"
+                        >
+                          {payingId === r._id ? 'Redirecting...' : 'Pay with PayPal'}
+                        </button>
+                      </>
                     ) : (
                       <>
                         <p>

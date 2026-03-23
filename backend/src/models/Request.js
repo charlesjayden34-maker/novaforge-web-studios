@@ -2,11 +2,12 @@ const mongoose = require('mongoose');
 
 const PaymentSchema = new mongoose.Schema(
   {
-    type: { type: String, enum: ['deposit', 'full'], required: true },
+    type: { type: String, enum: ['full'], required: true },
     amount: { type: Number, required: true },
     currency: { type: String, default: 'usd' },
-    stripePaymentIntentId: { type: String, required: true },
-    status: { type: String, default: 'requires_payment_method' }
+    provider: { type: String, enum: ['stripe', 'paypal'], required: true, default: 'stripe' },
+    providerPaymentId: { type: String, required: true },
+    status: { type: String, default: 'created' }
   },
   { timestamps: true }
 );
@@ -33,10 +34,15 @@ const RequestSchema = new mongoose.Schema(
     websitePrice: { type: Number, required: true, min: 0 },
     preferredPaymentMethod: {
       type: String,
-      enum: ['bank_transfer'],
+      enum: ['bank_transfer', 'paypal'],
       default: 'bank_transfer'
     },
-    paymentSubmission: { type: PaymentSubmissionSchema, required: true },
+    paymentSubmission: {
+      type: PaymentSubmissionSchema,
+      required: function paymentSubmissionRequired() {
+        return this.preferredPaymentMethod === 'bank_transfer';
+      }
+    },
     description: { type: String, required: true },
     status: {
       type: String,

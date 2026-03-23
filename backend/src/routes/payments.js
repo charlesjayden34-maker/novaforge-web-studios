@@ -43,7 +43,8 @@ router.post('/create-intent', async (req, res, next) => {
       type: 'full',
       amount: amountUsd,
       currency: 'usd',
-      stripePaymentIntentId: intent.id,
+      provider: 'stripe',
+      providerPaymentId: intent.id,
       status: intent.status
     });
     await request.save();

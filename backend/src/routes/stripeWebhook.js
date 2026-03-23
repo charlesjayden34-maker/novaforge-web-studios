@@ -29,7 +29,7 @@ async function stripeWebhookHandler(req, res) {
     const requestId = pi?.metadata?.requestId;
     if (requestId) {
       await Request.updateOne(
-        { _id: requestId, 'payments.stripePaymentIntentId': pi.id },
+        { _id: requestId, 'payments.providerPaymentId': pi.id, 'payments.provider': 'stripe' },
         { $set: { 'payments.$.status': pi.status } }
       );
     }

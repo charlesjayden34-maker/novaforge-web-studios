@@ -11,6 +11,7 @@ const { requestsRouter } = require('./routes/requests');
 const { adminRouter } = require('./routes/admin');
 const { paymentsRouter } = require('./routes/payments');
 const { stripeWebhookHandler } = require('./routes/stripeWebhook');
+const { paypalRouter, paypalWebhookHandler } = require('./routes/paypal');
 const { validateEnv } = require('./config/env');
 const { generalLimiter } = require('./middleware/rateLimit');
 
@@ -44,6 +45,7 @@ app.post(
   express.raw({ type: 'application/json', limit: '100kb' }),
   stripeWebhookHandler
 );
+app.post('/api/paypal/webhook', express.json({ limit: '200kb' }), paypalWebhookHandler);
 
 app.use(express.json({ limit: '1mb' }));
 
@@ -53,6 +55,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/requests', requestsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/payments', paymentsRouter);
+app.use('/api/paypal', paypalRouter);
 
 app.use((err, _req, res, _next) => {
   // eslint-disable-next-line no-console

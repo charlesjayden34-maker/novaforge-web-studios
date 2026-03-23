@@ -20,6 +20,11 @@ type Req = {
     transferDate?: string;
     paymentProofUrl?: string;
   };
+  payments?: Array<{
+    provider?: 'stripe' | 'paypal';
+    providerPaymentId?: string;
+    status?: string;
+  }>;
   deliveryUrl?: string;
   description: string;
   createdAt?: string;
@@ -149,21 +154,39 @@ export const AdminDashboard = () => {
                       {(r.preferredPaymentMethod || 'bank_transfer').replace('_', ' ')}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
-                      <div>{r.paymentSubmission?.payerFullName || '-'}</div>
-                      <div>{r.paymentSubmission?.payerBankName || '-'}</div>
-                      <div>{r.paymentSubmission?.payerBankIdentifier || '-'}</div>
-                      <div>Ref: {r.paymentSubmission?.transferReference || '-'}</div>
-                      {r.paymentSubmission?.paymentProofUrl ? (
-                        <a
-                          href={r.paymentSubmission.paymentProofUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-brand-600 underline underline-offset-2 dark:text-brand-300"
-                        >
-                          Open proof
-                        </a>
+                      {r.preferredPaymentMethod === 'paypal' ? (
+                        <>
+                          <div>PayPal flow</div>
+                          <div>
+                            Captures:{' '}
+                            {r.payments?.filter((payment) => payment.provider === 'paypal').length || 0}
+                          </div>
+                          <div className="truncate max-w-40">
+                            {(r.payments || [])
+                              .filter((payment) => payment.provider === 'paypal')
+                              .map((payment) => payment.providerPaymentId)
+                              .join(', ') || '-'}
+                          </div>
+                        </>
                       ) : (
-                        <div>-</div>
+                        <>
+                          <div>{r.paymentSubmission?.payerFullName || '-'}</div>
+                          <div>{r.paymentSubmission?.payerBankName || '-'}</div>
+                          <div>{r.paymentSubmission?.payerBankIdentifier || '-'}</div>
+                          <div>Ref: {r.paymentSubmission?.transferReference || '-'}</div>
+                          {r.paymentSubmission?.paymentProofUrl ? (
+                            <a
+                              href={r.paymentSubmission.paymentProofUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-brand-600 underline underline-offset-2 dark:text-brand-300"
+                            >
+                              Open proof
+                            </a>
+                          ) : (
+                            <div>-</div>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="px-4 py-3">

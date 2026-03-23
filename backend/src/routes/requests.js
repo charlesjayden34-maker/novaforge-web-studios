@@ -31,41 +31,46 @@ router.post('/', requireAuth, requestCreateLimiter, async (req, res, next) => {
   try {
     const { name, projectType, websiteTier, preferredPaymentMethod, paymentSubmission, description } =
       req.body || {};
-    if (
-      !name ||
-      !projectType ||
-      !websiteTier ||
-      !preferredPaymentMethod ||
-      !paymentSubmission ||
-      !description
-    )
+    if (!name || !projectType || !websiteTier || !preferredPaymentMethod || !description)
       return res.status(400).json({ error: 'Missing fields' });
 
-    if (String(preferredPaymentMethod) !== 'bank_transfer') {
-      return res.status(400).json({ error: 'Only bank transfer is currently supported' });
-    }
-
-    const { payerFullName, payerBankIdentifier, transferReference, transferDate, paymentProofUrl } =
-      paymentSubmission || {};
-    if (
-      !payerFullName ||
-      !payerBankIdentifier ||
-      !transferReference ||
-      !transferDate ||
-      !paymentProofUrl
-    ) {
-      return res.status(400).json({ error: 'Missing payment submission details' });
+    const paymentMethod = String(preferredPaymentMethod);
+    if (!['bank_transfer', 'paypal'].includes(paymentMethod)) {
+      return res.status(400).json({ error: 'Unsupported payment method' });
     }
 
     const normalizedTier = String(websiteTier).toLowerCase().trim();
     const websitePrice = tierPricing[normalizedTier];
     if (!websitePrice) return res.status(400).json({ error: 'Invalid website tier' });
-    if (!isSafeHttpUrl(paymentProofUrl)) {
-      return res.status(400).json({ error: 'Payment proof URL must be a valid http(s) URL' });
-    }
 
     const normalizedEmail = String(req.user.email).toLowerCase().trim();
-    const detectedBankName = detectBankName(payerBankIdentifier);
+    let normalizedPaymentSubmission;
+
+    if (paymentMethod === 'bank_transfer') {
+      const { payerFullName, payerBankIdentifier, transferReference, transferDate, paymentProofUrl } =
+        paymentSubmission || {};
+      if (
+        !payerFullName ||
+        !payerBankIdentifier ||
+        !transferReference ||
+        !transferDate ||
+        !paymentProofUrl
+      ) {
+        return res.status(400).json({ error: 'Missing payment submission details' });
+      }
+      if (!isSafeHttpUrl(paymentProofUrl)) {
+        return res.status(400).json({ error: 'Payment proof URL must be a valid http(s) URL' });
+      }
+
+      normalizedPaymentSubmission = {
+        payerFullName: String(payerFullName).trim(),
+        payerBankIdentifier: String(payerBankIdentifier).trim(),
+        payerBankName: detectBankName(payerBankIdentifier),
+        transferReference: String(transferReference).trim(),
+        transferDate: String(transferDate).trim(),
+        paymentProofUrl: String(paymentProofUrl).trim()
+      };
+    }
 
     const request = await Request.create({
       userId: req.user._id,
@@ -74,15 +79,8 @@ router.post('/', requireAuth, requestCreateLimiter, async (req, res, next) => {
       projectType: String(projectType),
       websiteTier: normalizedTier,
       websitePrice,
-      preferredPaymentMethod: String(preferredPaymentMethod),
-      paymentSubmission: {
-        payerFullName: String(payerFullName).trim(),
-        payerBankIdentifier: String(payerBankIdentifier).trim(),
-        payerBankName: detectedBankName,
-        transferReference: String(transferReference).trim(),
-        transferDate: String(transferDate).trim(),
-        paymentProofUrl: String(paymentProofUrl).trim()
-      },
+      preferredPaymentMethod: paymentMethod,
+      paymentSubmission: normalizedPaymentSubmission,
       description: String(description).trim()
     });
 
