@@ -6,6 +6,23 @@ const { isValidObjectId } = require('../utils/validation');
 const { requestCreateLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
+const ORDER_ID_PATTERN = /^[A-Z0-9-]{10,64}$/i;
+
+function asUsdAmount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return Number(amount.toFixed(2));
+}
+
+function matchesExpectedUsd(request, amount, currencyCode) {
+  const expected = asUsdAmount(request.websitePrice);
+  return (
+    expected !== null &&
+    amount !== null &&
+    String(currencyCode || '').toUpperCase() === 'USD' &&
+    Math.abs(expected - amount) < 0.01
+  );
+}
 
 router.post('/create-order', requireAuth, requestCreateLimiter, async (req, res, next) => {
   try {
@@ -16,6 +33,12 @@ router.post('/create-order', requireAuth, requestCreateLimiter, async (req, res,
     if (!request) return res.status(404).json({ error: 'Request not found' });
     if (String(request.preferredPaymentMethod) !== 'paypal') {
       return res.status(400).json({ error: 'This request is not set to PayPal payment' });
+    }
+    if (String(request.paymentStatus) === 'paid') {
+      return res.status(400).json({ error: 'Request has already been paid' });
+    }
+    if (String(request.paymentStatus) === 'cancelled' || String(request.status) === 'cancelled') {
+      return res.status(400).json({ error: 'Cancelled requests cannot be paid' });
     }
 
     const isOwner =
@@ -51,7 +74,9 @@ router.post('/create-order', requireAuth, requestCreateLimiter, async (req, res,
       }
     });
 
-    const approveUrl = (order.links || []).find((link) => link.rel === 'approve')?.href;
+    const approveUrl = (order.links || []).find(
+      (link) => link.rel === 'approve' || link.rel === 'payer-action'
+    )?.href;
     if (!approveUrl) return res.status(500).json({ error: 'PayPal approval URL missing' });
     return res.json({ orderId: order.id, approveUrl });
   } catch (e) {
@@ -62,15 +87,18 @@ router.post('/create-order', requireAuth, requestCreateLimiter, async (req, res,
 router.post('/capture-order', requireAuth, requestCreateLimiter, async (req, res, next) => {
   try {
     const { orderId } = req.body || {};
-    if (!orderId) return res.status(400).json({ error: 'Missing order id' });
+    if (!orderId || !ORDER_ID_PATTERN.test(String(orderId))) {
+      return res.status(400).json({ error: 'Invalid order id' });
+    }
 
     const capture = await callPaypal({
       method: 'POST',
       path: `/v2/checkout/orders/${orderId}/capture`
     });
 
-    const customId = capture?.purchase_units?.[0]?.payments?.captures?.[0]?.custom_id
-      || capture?.purchase_units?.[0]?.custom_id;
+    const purchaseUnit = capture?.purchase_units?.[0];
+    const capturedPayment = purchaseUnit?.payments?.captures?.[0];
+    const customId = capturedPayment?.custom_id || purchaseUnit?.custom_id;
     if (!isValidObjectId(customId)) {
       return res.status(400).json({ error: 'Invalid request mapping from PayPal order' });
     }
@@ -84,8 +112,15 @@ router.post('/capture-order', requireAuth, requestCreateLimiter, async (req, res
       req.user.role === 'admin';
     if (!isOwner) return res.status(403).json({ error: 'Forbidden' });
 
-    const captureId = capture?.purchase_units?.[0]?.payments?.captures?.[0]?.id || orderId;
-    const status = capture?.status || 'COMPLETED';
+    const capturedAmount = asUsdAmount(capturedPayment?.amount?.value || purchaseUnit?.amount?.value);
+    const capturedCurrency =
+      capturedPayment?.amount?.currency_code || purchaseUnit?.amount?.currency_code || 'USD';
+    if (!matchesExpectedUsd(request, capturedAmount, capturedCurrency)) {
+      return res.status(400).json({ error: 'Captured amount does not match request price' });
+    }
+
+    const captureId = capturedPayment?.id || orderId;
+    const status = capturedPayment?.status || capture?.status || 'COMPLETED';
 
     const existing = request.payments.find(
       (payment) =>
@@ -94,14 +129,16 @@ router.post('/capture-order', requireAuth, requestCreateLimiter, async (req, res
     if (!existing) {
       request.payments.push({
         type: 'full',
-        amount: Number(request.websitePrice || 0),
+        amount: capturedAmount || Number(request.websitePrice || 0),
         currency: 'usd',
         provider: 'paypal',
         providerPaymentId: String(captureId),
         status: String(status).toLowerCase()
       });
     }
-    request.paymentStatus = 'paid';
+    if (String(status).toLowerCase() === 'completed') {
+      request.paymentStatus = 'paid';
+    }
     await request.save();
 
     return res.json({ ok: true, request });
@@ -144,22 +181,25 @@ async function paypalWebhookHandler(req, res) {
     }
 
     const event = req.body || {};
-    if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED' || event.event_type === 'CHECKOUT.ORDER.APPROVED') {
-      const customId =
-        event?.resource?.custom_id ||
-        event?.resource?.purchase_units?.[0]?.custom_id ||
-        event?.resource?.supplementary_data?.related_ids?.order_id;
+    if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
+      const customId = event?.resource?.custom_id || event?.resource?.purchase_units?.[0]?.custom_id;
       const captureId = event?.resource?.id || event?.resource?.supplementary_data?.related_ids?.capture_id;
       if (isValidObjectId(customId) && captureId) {
         const request = await Request.findById(customId);
         if (request) {
+          const capturedAmount = asUsdAmount(event?.resource?.amount?.value);
+          const capturedCurrency = event?.resource?.amount?.currency_code || 'USD';
+          if (!matchesExpectedUsd(request, capturedAmount, capturedCurrency)) {
+            return res.json({ received: true });
+          }
+
           const existing = request.payments.find(
             (payment) => payment.provider === 'paypal' && payment.providerPaymentId === String(captureId)
           );
           if (!existing) {
             request.payments.push({
               type: 'full',
-              amount: Number(request.websitePrice || 0),
+              amount: capturedAmount || Number(request.websitePrice || 0),
               currency: 'usd',
               provider: 'paypal',
               providerPaymentId: String(captureId),
