@@ -9,6 +9,8 @@ function signToken(user) {
   return jwt.sign({ sub: user._id.toString(), role: user.role }, secret, { expiresIn });
 }
 
+const jwtVerifyOptions = { algorithms: ['HS256'] };
+
 async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || '';
@@ -18,7 +20,7 @@ async function requireAuth(req, res, next) {
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error('JWT_SECRET is required');
 
-    const payload = jwt.verify(token, secret);
+    const payload = jwt.verify(token, secret, jwtVerifyOptions);
     const user = await User.findById(payload.sub).select('_id name email role');
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -45,7 +47,7 @@ async function optionalAuth(req, _res, next) {
     const secret = process.env.JWT_SECRET;
     if (!secret) return next();
 
-    const payload = jwt.verify(token, secret);
+    const payload = jwt.verify(token, secret, jwtVerifyOptions);
     const user = await User.findById(payload.sub).select('_id name email role');
     if (user) req.user = user;
   } catch (_e) {

@@ -27,12 +27,28 @@ const forgotPasswordLimiter = rateLimit({
   message: { error: 'Too many reset attempts. Please wait before trying again.' }
 });
 
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders,
+  legacyHeaders,
+  message: { error: 'Too many password reset requests. Please wait before trying again.' }
+});
+
 const requestCreateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 20,
   standardHeaders,
   legacyHeaders,
   message: { error: 'Too many submissions. Please wait and retry.' }
+});
+
+const requestClaimLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  standardHeaders,
+  legacyHeaders,
+  message: { error: 'Too many account sync requests. Please wait and retry.' }
 });
 
 const adminMutationLimiter = rateLimit({
@@ -47,6 +63,8 @@ module.exports = {
   generalLimiter,
   authLimiter,
   forgotPasswordLimiter,
+  resetPasswordLimiter,
   requestCreateLimiter,
+  requestClaimLimiter,
   adminMutationLimiter
 };

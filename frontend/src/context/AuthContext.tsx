@@ -6,7 +6,13 @@ import {
   useState,
   type ReactNode
 } from 'react';
-import { clearAuth, getUser, setAuth as persistAuth, type AuthUser } from '../lib/auth';
+import {
+  clearAuth,
+  getUser,
+  normalizeAuthUser,
+  setAuth as persistAuth,
+  type AuthUser
+} from '../lib/auth';
 
 type AuthCtx = {
   user: AuthUser | null;
@@ -20,8 +26,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => getUser());
 
   const login = useCallback((token: string, u: AuthUser) => {
-    persistAuth(token, u);
-    setUser(u);
+    const normalizedUser = normalizeAuthUser(u);
+    persistAuth(token, normalizedUser);
+    setUser(normalizedUser);
   }, []);
 
   const logout = useCallback(() => {

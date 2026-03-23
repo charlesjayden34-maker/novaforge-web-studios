@@ -5,8 +5,9 @@ const validator = require('validator');
 const { User } = require('../models/User');
 const { signToken, requireAuth } = require('../middleware/auth');
 const { sendPasswordResetEmail } = require('../services/email');
-const { authLimiter, forgotPasswordLimiter } = require('../middleware/rateLimit');
+const { authLimiter, forgotPasswordLimiter, resetPasswordLimiter } = require('../middleware/rateLimit');
 const { validateEnv } = require('../config/env');
+const { normalizeUserProfile, professionalDisplayName } = require('../utils/profile');
 
 const router = express.Router();
 const env = validateEnv();
@@ -24,16 +25,22 @@ router.post('/register', authLimiter, async (req, res, next) => {
 
     const passwordHash = await bcrypt.hash(String(password), 10);
     const user = await User.create({
-      name: String(name).trim(),
+      name: professionalDisplayName(name, email),
       email: String(email).toLowerCase().trim(),
       passwordHash,
       role: 'user'
     });
 
     const token = signToken(user);
+    const normalizedUser = normalizeUserProfile({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    });
     res.json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+      user: normalizedUser
     });
   } catch (e) {
     next(e);
@@ -53,9 +60,15 @@ router.post('/login', authLimiter, async (req, res, next) => {
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
     const token = signToken(user);
+    const normalizedUser = normalizeUserProfile({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    });
     res.json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+      user: normalizedUser
     });
   } catch (e) {
     next(e);
@@ -110,7 +123,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res, next) =>
   }
 });
 
-router.post('/reset-password', async (req, res, next) => {
+router.post('/reset-password', resetPasswordLimiter, async (req, res, next) => {
   try {
     const { token, password } = req.body || {};
     if (!token || !password) return res.status(400).json({ error: 'Missing fields' });
@@ -138,12 +151,12 @@ router.post('/reset-password', async (req, res, next) => {
 
 router.get('/me', requireAuth, async (req, res) => {
   res.json({
-    user: {
+    user: normalizeUserProfile({
       id: req.user._id,
       name: req.user.name,
       email: req.user.email,
       role: req.user.role
-    }
+    })
   });
 });
 

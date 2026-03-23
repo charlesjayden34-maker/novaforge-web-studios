@@ -1,5 +1,6 @@
 const { getStripe } = require('../services/stripe');
 const { Request } = require('../models/Request');
+const { isValidObjectId } = require('../utils/validation');
 
 async function stripeWebhookHandler(req, res) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -27,10 +28,19 @@ async function stripeWebhookHandler(req, res) {
   if (relevantTypes.has(event.type)) {
     const pi = event.data.object;
     const requestId = pi?.metadata?.requestId;
-    if (requestId) {
+    if (requestId && isValidObjectId(requestId)) {
+      const normalizedStatus = String(pi.status || '').toLowerCase();
+      const isPaid = normalizedStatus === 'succeeded';
+      const paymentStatus = isPaid ? 'paid' : normalizedStatus === 'canceled' ? 'cancelled' : 'unpaid';
+
       await Request.updateOne(
         { _id: requestId, 'payments.providerPaymentId': pi.id, 'payments.provider': 'stripe' },
-        { $set: { 'payments.$.status': pi.status } }
+        {
+          $set: {
+            'payments.$.status': normalizedStatus,
+            paymentStatus
+          }
+        }
       );
     }
   }

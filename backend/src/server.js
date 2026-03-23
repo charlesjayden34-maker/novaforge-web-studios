@@ -18,6 +18,7 @@ const { generalLimiter } = require('./middleware/rateLimit');
 const env = validateEnv();
 
 const app = express();
+app.set('trust proxy', env.trustProxy);
 
 function getCorsOrigin() {
   const raw = process.env.CORS_ORIGIN;
@@ -36,8 +37,7 @@ app.use(
   })
 );
 app.use(cors({ origin: getCorsOrigin(), credentials: true }));
-app.use(morgan('dev'));
-app.use(generalLimiter);
+app.use(morgan(env.isProduction ? 'combined' : 'dev'));
 
 // Stripe webhook must use raw body
 app.post(
@@ -47,6 +47,7 @@ app.post(
 );
 app.post('/api/paypal/webhook', express.json({ limit: '200kb' }), paypalWebhookHandler);
 
+app.use(generalLimiter);
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));

@@ -33,6 +33,34 @@ const tierName: Record<Req['websiteTier'], string> = {
   premium: 'Premium'
 };
 
+const allowedPaypalHosts = new Set([
+  'www.paypal.com',
+  'paypal.com',
+  'www.sandbox.paypal.com',
+  'sandbox.paypal.com'
+]);
+
+function toSafeHttpUrl(value?: string) {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function isAllowedPaypalApproveUrl(value?: string) {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && allowedPaypalHosts.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export const ClientDashboard = () => {
   const [requests, setRequests] = useState<Req[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +72,11 @@ export const ClientDashboard = () => {
     try {
       await api.post('/api/requests/claim');
       const res = await api.get<{ requests: Req[] }>('/api/requests/me');
-      setRequests(res.data.requests || []);
+      const activeRequests = (res.data.requests || []).filter(
+        (request) =>
+          (request.paymentStatus || 'unpaid') !== 'cancelled' && String(request.status) !== 'cancelled'
+      );
+      setRequests(activeRequests);
     } catch {
       setErr('Could not load your requests.');
     } finally {
@@ -79,7 +111,10 @@ export const ClientDashboard = () => {
     setPayingId(requestId);
     try {
       const res = await api.post<{ approveUrl: string }>('/api/paypal/create-order', { requestId });
-      window.location.href = res.data.approveUrl;
+      if (!isAllowedPaypalApproveUrl(res.data?.approveUrl)) {
+        throw new Error('Invalid PayPal redirect URL');
+      }
+      window.location.assign(res.data.approveUrl);
     } catch {
       setErr('Could not start PayPal checkout. Please try again.');
       setPayingId(null);
@@ -112,7 +147,9 @@ export const ClientDashboard = () => {
         )}
 
         <div className="grid gap-4">
-          {requests.map((r) => (
+          {requests.map((r) => {
+            const safeDeliveryUrl = toSafeHttpUrl(r.deliveryUrl);
+            return (
             <article
               key={r._id}
               className="nf-card p-5 transition duration-300 hover:-translate-y-0.5"
@@ -224,9 +261,9 @@ export const ClientDashboard = () => {
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Website delivery
                 </p>
-                {(r.paymentStatus || 'unpaid') === 'paid' && r.deliveryUrl ? (
+                {(r.paymentStatus || 'unpaid') === 'paid' && safeDeliveryUrl ? (
                   <a
-                    href={r.deliveryUrl}
+                    href={safeDeliveryUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="text-xs font-medium text-brand-600 underline underline-offset-4 dark:text-brand-300"
@@ -240,7 +277,8 @@ export const ClientDashboard = () => {
                 )}
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </div>
     </>

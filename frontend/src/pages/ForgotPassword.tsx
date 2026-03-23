@@ -9,6 +9,7 @@ export const ForgotPassword = () => {
   const [devToken, setDevToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const allowDevTokenDisplay = import.meta.env.DEV;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -22,7 +23,7 @@ export const ForgotPassword = () => {
         res.data?.message ||
           'If an account exists with that email, a reset link has been sent.'
       );
-      if (res.data?.resetToken) setDevToken(res.data.resetToken);
+      if (allowDevTokenDisplay && res.data?.resetToken) setDevToken(res.data.resetToken);
     } catch {
       setError('Could not request password reset. Please try again.');
     } finally {
@@ -61,7 +62,7 @@ export const ForgotPassword = () => {
 
           {error && <p className="text-xs text-rose-500 dark:text-rose-400">{error}</p>}
           {message && <p className="text-xs text-emerald-600 dark:text-emerald-400">{message}</p>}
-          {devToken && (
+          {allowDevTokenDisplay && devToken && (
             <p className="text-xs text-amber-700 dark:text-amber-300">
               Dev reset token: <span className="font-mono">{devToken}</span>
             </p>

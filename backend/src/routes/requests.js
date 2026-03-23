@@ -2,8 +2,9 @@ const express = require('express');
 const { Request } = require('../models/Request');
 const { requireAuth } = require('../middleware/auth');
 const { sendAdminNotification } = require('../services/email');
-const { requestCreateLimiter } = require('../middleware/rateLimit');
+const { requestCreateLimiter, requestClaimLimiter } = require('../middleware/rateLimit');
 const { isSafeHttpUrl } = require('../utils/validation');
+const { professionalDisplayName } = require('../utils/profile');
 
 const router = express.Router();
 
@@ -74,7 +75,7 @@ router.post('/', requireAuth, requestCreateLimiter, async (req, res, next) => {
 
     const request = await Request.create({
       userId: req.user._id,
-      name: String(name).trim(),
+      name: professionalDisplayName(name, normalizedEmail),
       email: normalizedEmail,
       projectType: String(projectType),
       websiteTier: normalizedTier,
@@ -93,7 +94,7 @@ router.post('/', requireAuth, requestCreateLimiter, async (req, res, next) => {
   }
 });
 
-router.post('/claim', requireAuth, async (req, res, next) => {
+router.post('/claim', requireAuth, requestClaimLimiter, async (req, res, next) => {
   try {
     await Request.updateMany(
       { email: req.user.email, userId: null },
@@ -113,7 +114,12 @@ router.get('/me', requireAuth, async (req, res, next) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    res.json({ requests });
+    res.json({
+      requests: requests.map((request) => ({
+        ...request,
+        name: professionalDisplayName(request.name, request.email)
+      }))
+    });
   } catch (e) {
     next(e);
   }

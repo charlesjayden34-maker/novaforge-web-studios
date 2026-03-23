@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { websiteTiers } from '../config/site';
+import { siteConfig, websiteTiers } from '../config/site';
 
 type FormState = {
   name: string;
@@ -49,6 +49,23 @@ const tierPricing = Object.fromEntries(websiteTiers.map((tier) => [tier.id, tier
   string,
   number
 >;
+
+const allowedPaypalHosts = new Set([
+  'www.paypal.com',
+  'paypal.com',
+  'www.sandbox.paypal.com',
+  'sandbox.paypal.com'
+]);
+
+function isAllowedPaypalApproveUrl(value?: string) {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && allowedPaypalHosts.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
 
 export const RequestPage = () => {
   const { user } = useAuth();
@@ -102,7 +119,7 @@ export const RequestPage = () => {
 
     setSubmitting(true);
     try {
-      await api.post('/api/requests', {
+      const created = await api.post<{ request?: { _id: string } }>('/api/requests', {
         name: form.name,
         projectType: form.projectType,
         websiteTier: form.websiteTier,
@@ -119,7 +136,21 @@ export const RequestPage = () => {
             : undefined,
         description: form.description
       });
-      setSuccess('Thanks! Your project request has been received.');
+
+      if (form.preferredPaymentMethod === 'paypal') {
+        const requestId = created.data?.request?._id;
+        if (!requestId) throw new Error('Missing request id');
+
+        const paypal = await api.post<{ approveUrl: string }>('/api/paypal/create-order', { requestId });
+        if (!isAllowedPaypalApproveUrl(paypal.data?.approveUrl)) {
+          throw new Error('Invalid PayPal redirect URL');
+        }
+
+        window.location.assign(paypal.data.approveUrl);
+        return;
+      }
+
+      setSuccess('Request submitted. Please complete your bank transfer now using the details below.');
       if (user) {
         setForm({
           ...initialState,
@@ -280,6 +311,15 @@ export const RequestPage = () => {
 
           {form.preferredPaymentMethod === 'bank_transfer' && (
             <>
+          <div className="rounded-lg border border-emerald-300/50 bg-emerald-100/70 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-300">
+            <p className="font-semibold">Pay this account now (full amount):</p>
+            <p>Account holder: {siteConfig.bank.accountHolder}</p>
+            <p>Bank name: {siteConfig.bank.bankName}</p>
+            <p>Branch: {siteConfig.bank.branch}</p>
+            <p>Branch transit: {siteConfig.bank.branchTransit}</p>
+            <p>SWIFT code: {siteConfig.bank.swiftCode}</p>
+            <p>Account number: {siteConfig.bank.accountNumber}</p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-slate-800 dark:text-slate-200" htmlFor="payerFullName">
@@ -366,7 +406,7 @@ export const RequestPage = () => {
 
           {form.preferredPaymentMethod === 'paypal' && (
             <p className="rounded-lg border border-sky-300/50 bg-sky-100/70 px-3 py-2 text-xs text-sky-900 dark:border-sky-700/60 dark:bg-sky-900/20 dark:text-sky-300">
-              You will complete full payment through PayPal from your dashboard after submitting this request.
+              After submit, you will be redirected to PayPal to log in and complete full payment.
             </p>
           )}
 
@@ -397,7 +437,11 @@ export const RequestPage = () => {
             disabled={submitting}
             className="nf-btn-primary"
           >
-            {submitting ? 'Sending...' : 'Submit Request'}
+            {submitting
+              ? 'Sending...'
+              : form.preferredPaymentMethod === 'paypal'
+                ? 'Continue to PayPal'
+                : 'Submit Request'}
           </button>
         </form>
       </div>

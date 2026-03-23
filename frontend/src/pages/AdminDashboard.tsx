@@ -43,6 +43,29 @@ const tierName: Record<Req['websiteTier'], string> = {
   premium: 'Premium'
 };
 
+function toSafeHttpUrl(value?: string) {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function toProfessionalName(name: string, email: string) {
+  if (String(email).trim().toLowerCase() === 'nathanwhittaker141@gmail.com') {
+    return 'Nathan Whittaker';
+  }
+  return String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export const AdminDashboard = () => {
   const [requests, setRequests] = useState<Req[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -57,9 +80,13 @@ export const AdminDashboard = () => {
         api.get<{ requests: Req[] }>('/api/admin/requests'),
         api.get<{ users: UserRow[] }>('/api/admin/users')
       ]);
-      setRequests(r.data.requests || []);
+      const activeRequests = (r.data.requests || []).filter(
+        (request) =>
+          (request.paymentStatus || 'unpaid') !== 'cancelled' && String(request.status) !== 'cancelled'
+      );
+      setRequests(activeRequests);
       setDeliveryDrafts(
-        Object.fromEntries((r.data.requests || []).map((req) => [req._id, req.deliveryUrl || '']))
+        Object.fromEntries(activeRequests.map((req) => [req._id, req.deliveryUrl || '']))
       );
       setUsers(u.data.users || []);
     } catch {
@@ -140,10 +167,14 @@ export const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {requests.map((r) => (
+                {requests.map((r) => {
+                  const safeProofUrl = toSafeHttpUrl(r.paymentSubmission?.paymentProofUrl);
+                  return (
                   <tr key={r._id} className="bg-white dark:bg-slate-950/40">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900 dark:text-slate-100">{r.name}</div>
+                      <div className="font-medium text-slate-900 dark:text-slate-100">
+                        {toProfessionalName(r.name, r.email)}
+                      </div>
                       <div className="text-xs text-slate-500">{r.email}</div>
                     </td>
                     <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{r.projectType}</td>
@@ -174,9 +205,9 @@ export const AdminDashboard = () => {
                           <div>{r.paymentSubmission?.payerBankName || '-'}</div>
                           <div>{r.paymentSubmission?.payerBankIdentifier || '-'}</div>
                           <div>Ref: {r.paymentSubmission?.transferReference || '-'}</div>
-                          {r.paymentSubmission?.paymentProofUrl ? (
+                          {safeProofUrl ? (
                             <a
-                              href={r.paymentSubmission.paymentProofUrl}
+                              href={safeProofUrl}
                               target="_blank"
                               rel="noreferrer"
                               className="text-brand-600 underline underline-offset-2 dark:text-brand-300"
@@ -228,9 +259,14 @@ export const AdminDashboard = () => {
                         />
                         <button
                           type="button"
-                          onClick={() =>
-                            updateRequest(r._id, { deliveryUrl: deliveryDrafts[r._id] || '' })
-                          }
+                          onClick={() => {
+                            const draft = (deliveryDrafts[r._id] || '').trim();
+                            if (draft && !toSafeHttpUrl(draft)) {
+                              setErr('Delivery URL must be a valid http(s) URL.');
+                              return;
+                            }
+                            updateRequest(r._id, { deliveryUrl: draft });
+                          }}
                           className="rounded-full bg-brand-500 px-3 py-1 text-[11px] font-semibold text-white"
                         >
                           Save
@@ -247,8 +283,8 @@ export const AdminDashboard = () => {
                       </button>
                     </td>
                   </tr>
-                  
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -269,7 +305,7 @@ export const AdminDashboard = () => {
                 {users.map((u) => (
                   <tr key={u._id} className="bg-white dark:bg-slate-950/40">
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
-                      {u.name}
+                      {toProfessionalName(u.name, u.email)}
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.email}</td>
                     <td className="px-4 py-3">

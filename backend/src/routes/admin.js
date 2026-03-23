@@ -4,6 +4,7 @@ const { Request } = require('../models/Request');
 const { User } = require('../models/User');
 const { adminMutationLimiter } = require('../middleware/rateLimit');
 const { isSafeHttpUrl, isValidObjectId } = require('../utils/validation');
+const { normalizeUserProfile, professionalDisplayName } = require('../utils/profile');
 
 const router = express.Router();
 
@@ -13,7 +14,12 @@ router.use(requireAdmin);
 router.get('/requests', async (_req, res, next) => {
   try {
     const requests = await Request.find().sort({ createdAt: -1 }).lean();
-    res.json({ requests });
+    res.json({
+      requests: requests.map((request) => ({
+        ...request,
+        name: professionalDisplayName(request.name, request.email)
+      }))
+    });
   } catch (e) {
     next(e);
   }
@@ -62,7 +68,11 @@ router.patch('/requests/:id', adminMutationLimiter, async (req, res, next) => {
     }
 
     const request = await Request.findByIdAndUpdate(id, patch, { new: true }).lean();
-    res.json({ request });
+    res.json({
+      request: request
+        ? { ...request, name: professionalDisplayName(request.name, request.email) }
+        : request
+    });
   } catch (e) {
     next(e);
   }
@@ -78,7 +88,9 @@ router.post('/requests/:id/cancel', adminMutationLimiter, async (req, res, next)
       { new: true }
     ).lean();
     if (!request) return res.status(404).json({ error: 'Not found' });
-    return res.json({ request });
+    return res.json({
+      request: { ...request, name: professionalDisplayName(request.name, request.email) }
+    });
   } catch (e) {
     next(e);
   }
@@ -86,8 +98,8 @@ router.post('/requests/:id/cancel', adminMutationLimiter, async (req, res, next)
 
 router.get('/users', async (_req, res, next) => {
   try {
-    const users = await User.find().select('_id name email role createdAt').sort({ createdAt: -1 });
-    res.json({ users });
+    const users = await User.find().select('_id name email role createdAt').sort({ createdAt: -1 }).lean();
+    res.json({ users: users.map(normalizeUserProfile) });
   } catch (e) {
     next(e);
   }
@@ -106,7 +118,7 @@ router.patch('/users/:id', adminMutationLimiter, async (req, res, next) => {
       .select('_id name email role createdAt')
       .lean();
     if (!user) return res.status(404).json({ error: 'Not found' });
-    res.json({ user });
+    res.json({ user: normalizeUserProfile(user) });
   } catch (e) {
     next(e);
   }

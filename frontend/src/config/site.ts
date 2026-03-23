@@ -4,7 +4,7 @@ export const siteConfig = {
     shortName: 'NovaForge'
   },
   contact: {
-    name: 'Ante',
+    name: 'Nathan Whittaker',
     email: 'nathanwhittaker141@gmail.com'
   },
   bank: {
