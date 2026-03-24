@@ -15,14 +15,18 @@ async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || '';
     const [type, token] = header.split(' ');
-    if (type !== 'Bearer' || !token) return res.status(401).json({ error: 'Unauthorized' });
+    if (type !== 'Bearer' || !token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error('JWT_SECRET is required');
 
     const payload = jwt.verify(token, secret, jwtVerifyOptions);
     const user = await User.findById(payload.sub).select('_id name email role');
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     req.user = user;
     next();

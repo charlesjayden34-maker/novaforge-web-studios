@@ -12,6 +12,12 @@ function parseTrustProxy(value, isProduction) {
   return isProduction ? 1 : false;
 }
 
+function parsePositiveInt(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
 function validateEnv() {
   const missing = [];
 
@@ -49,7 +55,9 @@ function validateEnv() {
   return {
     isProduction,
     allowDevResetTokenResponse: asBool(process.env.ALLOW_DEV_RESET_TOKEN_RESPONSE),
-    trustProxy: parseTrustProxy(process.env.TRUST_PROXY, isProduction)
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY, isProduction),
+    loginMaxAttempts: parsePositiveInt(process.env.LOGIN_MAX_ATTEMPTS, 5),
+    loginLockMinutes: parsePositiveInt(process.env.LOGIN_LOCK_MINUTES, 15)
   };
 }
 

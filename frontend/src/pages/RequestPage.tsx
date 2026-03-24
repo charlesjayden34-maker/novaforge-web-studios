@@ -139,7 +139,9 @@ export const RequestPage = () => {
 
       if (form.preferredPaymentMethod === 'paypal') {
         const requestId = created.data?.request?._id;
-        if (!requestId) throw new Error('Missing request id');
+        if (!requestId) {
+          throw new Error('Missing request id');
+        }
 
         const paypal = await api.post<{ approveUrl: string }>('/api/paypal/create-order', { requestId });
         if (!isAllowedPaypalApproveUrl(paypal.data?.approveUrl)) {

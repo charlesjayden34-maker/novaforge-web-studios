@@ -11,14 +11,33 @@ const { normalizeUserProfile, professionalDisplayName } = require('../utils/prof
 
 const router = express.Router();
 const env = validateEnv();
+const TOO_MANY_LOGIN_ATTEMPTS_MESSAGE = 'Too many login attempts. Please try again later.';
+
+function isStrongPassword(password) {
+  const value = String(password || '');
+  return (
+    value.length >= 10 &&
+    /[A-Z]/.test(value) &&
+    /[a-z]/.test(value) &&
+    /\d/.test(value) &&
+    /[^A-Za-z0-9]/.test(value)
+  );
+}
 
 router.post('/register', authLimiter, async (req, res, next) => {
   try {
     const { name, email, password } = req.body || {};
     if (!name || !email || !password) return res.status(400).json({ error: 'Missing fields' });
     if (!validator.isEmail(String(email))) return res.status(400).json({ error: 'Invalid email' });
-    if (String(password).length < 8)
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (!isStrongPassword(password)) {
+      return res
+        .status(400)
+        .json({
+          error:
+            'Password must be at least 10 characters and include uppercase, lowercase, number, and symbol.'
+        });
+    }
+    if (String(name).trim().length > 80) return res.status(400).json({ error: 'Name is too long' });
 
     const exists = await User.findOne({ email: String(email).toLowerCase().trim() });
     if (exists) return res.status(409).json({ error: 'Email already in use' });
@@ -55,9 +74,26 @@ router.post('/login', authLimiter, async (req, res, next) => {
 
     const user = await User.findOne({ email: String(email).toLowerCase().trim() });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      return res.status(429).json({ error: TOO_MANY_LOGIN_ATTEMPTS_MESSAGE });
+    }
 
     const ok = await bcrypt.compare(String(password), user.passwordHash);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!ok) {
+      user.loginAttempts = Number(user.loginAttempts || 0) + 1;
+      if (user.loginAttempts >= env.loginMaxAttempts) {
+        user.loginAttempts = 0;
+        user.lockUntil = new Date(Date.now() + env.loginLockMinutes * 60 * 1000);
+      }
+      await user.save();
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (user.loginAttempts || user.lockUntil) {
+      user.loginAttempts = 0;
+      user.lockUntil = null;
+      await user.save();
+    }
 
     const token = signToken(user);
     const normalizedUser = normalizeUserProfile({
@@ -127,8 +163,14 @@ router.post('/reset-password', resetPasswordLimiter, async (req, res, next) => {
   try {
     const { token, password } = req.body || {};
     if (!token || !password) return res.status(400).json({ error: 'Missing fields' });
-    if (String(password).length < 8)
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (!isStrongPassword(password)) {
+      return res
+        .status(400)
+        .json({
+          error:
+            'Password must be at least 10 characters and include uppercase, lowercase, number, and symbol.'
+        });
+    }
 
     const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
     const user = await User.findOne({
@@ -141,6 +183,8 @@ router.post('/reset-password', resetPasswordLimiter, async (req, res, next) => {
     user.passwordHash = await bcrypt.hash(String(password), 10);
     user.resetPasswordTokenHash = null;
     user.resetPasswordExpiresAt = null;
+    user.loginAttempts = 0;
+    user.lockUntil = null;
     await user.save();
 
     return res.json({ ok: true, message: 'Password reset successful.' });

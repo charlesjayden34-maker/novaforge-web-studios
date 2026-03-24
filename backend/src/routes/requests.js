@@ -44,6 +44,21 @@ router.post('/', requireAuth, requestCreateLimiter, async (req, res, next) => {
     const websitePrice = tierPricing[normalizedTier];
     if (!websitePrice) return res.status(400).json({ error: 'Invalid website tier' });
 
+    const normalizedName = String(name).trim();
+    const normalizedProjectType = String(projectType).trim();
+    const normalizedDescription = String(description).trim();
+    if (!normalizedName || normalizedName.length > 80) {
+      return res.status(400).json({ error: 'Name must be between 1 and 80 characters' });
+    }
+    if (!normalizedProjectType || normalizedProjectType.length > 80) {
+      return res.status(400).json({ error: 'Project type must be between 1 and 80 characters' });
+    }
+    if (normalizedDescription.length < 20 || normalizedDescription.length > 2000) {
+      return res
+        .status(400)
+        .json({ error: 'Project description must be between 20 and 2000 characters' });
+    }
+
     const normalizedEmail = String(req.user.email).toLowerCase().trim();
     let normalizedPaymentSubmission;
 
@@ -75,14 +90,14 @@ router.post('/', requireAuth, requestCreateLimiter, async (req, res, next) => {
 
     const request = await Request.create({
       userId: req.user._id,
-      name: professionalDisplayName(name, normalizedEmail),
+      name: professionalDisplayName(normalizedName, normalizedEmail),
       email: normalizedEmail,
-      projectType: String(projectType),
+      projectType: normalizedProjectType,
       websiteTier: normalizedTier,
       websitePrice,
       preferredPaymentMethod: paymentMethod,
       paymentSubmission: normalizedPaymentSubmission,
-      description: String(description).trim()
+      description: normalizedDescription
     });
 
     // fire-and-forget email
