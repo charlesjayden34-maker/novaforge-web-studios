@@ -73,6 +73,10 @@ function firstNonEmpty(values) {
   return '';
 }
 
+function isLikelyEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
 function buildAddress(tags) {
   const line1 = [tags['addr:housenumber'], tags['addr:street']].filter(Boolean).join(' ');
   const line2 = [tags['addr:city'], tags['addr:state'], tags['addr:country']].filter(Boolean).join(', ');
@@ -169,7 +173,9 @@ out center tags ${maxRows};
     const key = `${lead.businessName.toLowerCase()}-${lead.lat.toFixed(4)}-${lead.lon.toFixed(4)}`;
     if (!unique.has(key)) unique.set(key, lead);
   }
-  return Array.from(unique.values()).slice(0, maxRows);
+  return Array.from(unique.values())
+    .filter((lead) => isLikelyEmail(lead.email))
+    .slice(0, maxRows);
 }
 
 function loadWorldCache() {
@@ -188,7 +194,11 @@ function cacheFresh(cache) {
 async function discoverWorldwide({ businessType, limit }) {
   const cached = loadWorldCache();
   if (cached && cacheFresh(cached)) {
-    return { leads: cached.leads.slice(0, limit), source: 'cache_fresh', scannedRegions: cached.scannedRegions || [] };
+    return {
+      leads: (cached.leads || []).filter((lead) => isLikelyEmail(lead.email)).slice(0, limit),
+      source: 'cache_fresh',
+      scannedRegions: cached.scannedRegions || []
+    };
   }
 
   const combined = [];
@@ -219,7 +229,7 @@ async function discoverWorldwide({ businessType, limit }) {
       if (Number(err?.statusCode) === 429) {
         if (cached?.leads?.length) {
           return {
-            leads: cached.leads.slice(0, limit),
+            leads: (cached.leads || []).filter((lead) => isLikelyEmail(lead.email)).slice(0, limit),
             source: 'cache_stale_fallback',
             scannedRegions: cached.scannedRegions || [],
             warning: 'Using cached results due to temporary upstream rate limits.'

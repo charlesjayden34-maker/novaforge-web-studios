@@ -11,7 +11,6 @@ const els = {
   discoverForm: document.getElementById('discoverForm'),
   saveLeadsBtn: document.getElementById('saveLeadsBtn'),
   downloadCsvBtn: document.getElementById('downloadCsvBtn'),
-  businessType: document.getElementById('businessType'),
   limit: document.getElementById('limit'),
   leadsTableBody: document.querySelector('#leadsTable tbody'),
   nextDraftBtn: document.getElementById('nextDraftBtn'),
@@ -85,7 +84,6 @@ async function discoverLeads(e) {
     const data = await apiFetch('/api/research/discover', {
       method: 'POST',
       body: JSON.stringify({
-        businessType: els.businessType.value.trim(),
         limit: Number(els.limit.value || 30)
       })
     });
@@ -95,9 +93,9 @@ async function discoverLeads(e) {
     els.saveLeadsBtn.disabled = state.leads.length === 0;
     if (state.leads.length) {
       await saveLeads(true);
-      setDiscoverStatus(`Found ${state.leads.length} businesses near ${data.location || ''}.`);
+      setDiscoverStatus(`Found ${state.leads.length} worldwide businesses with public email addresses.`);
     } else {
-      setDiscoverStatus('No leads found for this search. Try another location.');
+      setDiscoverStatus('No email-qualified leads found right now. Please retry in a few minutes.');
     }
   } catch (err) {
     state.leads = [];
