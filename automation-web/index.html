@@ -16,27 +16,9 @@
       </header>
 
       <section class="card">
-        <h2>Admin Login</h2>
-        <p class="muted">This is separate from your website-making app.</p>
-        <form id="loginForm" class="grid">
-          <label>
-            API base URL
-            <input id="apiBase" type="url" placeholder="https://automation-research-api.onrender.com" required />
-          </label>
-          <label>
-            Admin email
-            <input id="email" type="email" required />
-          </label>
-          <label>
-            Admin password
-            <input id="password" type="password" required />
-          </label>
-          <div class="row">
-            <button type="submit">Sign in</button>
-            <button type="button" id="logoutBtn" class="secondary">Log out</button>
-          </div>
-          <p id="authStatus" class="status"></p>
-        </form>
+        <h2>Connected</h2>
+        <p class="muted">No login needed. This app is ready to pull research data immediately.</p>
+        <p class="status" id="authStatus"></p>
       </section>
 
       <section class="card">
@@ -44,7 +26,7 @@
         <form id="discoverForm" class="grid">
           <label>
             Location
-            <input id="location" placeholder="Bridgetown, Barbados" required />
+            <input id="location" value="Bridgetown, Barbados" required />
           </label>
           <label>
             Business type (optional)

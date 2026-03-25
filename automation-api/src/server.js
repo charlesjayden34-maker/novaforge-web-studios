@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const jwt = require('jsonwebtoken');
 
 const app = express();
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -35,29 +34,6 @@ function boolish(v) {
 function parsePositiveNumber(value, fallback) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
-function getJwtSecret() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 24) throw new Error('JWT_SECRET must be configured');
-  return secret;
-}
-
-function signAdminToken(email) {
-  return jwt.sign({ sub: email, role: 'admin' }, getJwtSecret(), { expiresIn: '7d' });
-}
-
-function requireAdmin(req, res, next) {
-  try {
-    const [type, token] = String(req.headers.authorization || '').split(' ');
-    if (type !== 'Bearer' || !token) return res.status(401).json({ error: 'Unauthorized' });
-    const payload = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] });
-    if (payload.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-    req.admin = payload.sub;
-    return next();
-  } catch {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
 }
 
 function readJson(filePath, fallback) {
@@ -248,13 +224,10 @@ app.post('/api/auth/login', (req, res) => {
   if (email !== adminEmail || password !== adminPassword) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
-  return res.json({
-    token: signAdminToken(email),
-    user: { email, role: 'admin', name: 'Automation Admin' }
-  });
+  return res.json({ ok: true, user: { email, role: 'admin', name: 'Automation Admin' } });
 });
 
-app.post('/api/research/discover', requireAdmin, async (req, res, next) => {
+app.post('/api/research/discover', async (req, res, next) => {
   try {
     const location = safeString(req.body?.location, 120);
     if (!location) return res.status(400).json({ error: 'location is required' });
@@ -268,7 +241,7 @@ app.post('/api/research/discover', requireAdmin, async (req, res, next) => {
   }
 });
 
-app.post('/api/research/generate-email', requireAdmin, (req, res) => {
+app.post('/api/research/generate-email', (req, res) => {
   const lead = req.body?.lead || {};
   const businessName = safeString(lead.businessName, 120);
   if (!businessName) return res.status(400).json({ error: 'lead.businessName is required' });
@@ -276,13 +249,13 @@ app.post('/api/research/generate-email', requireAdmin, (req, res) => {
   return res.json(buildEmailDraft(lead, sendCount));
 });
 
-app.post('/api/campaign/save-leads', requireAdmin, (req, res) => {
+app.post('/api/campaign/save-leads', (req, res) => {
   const leads = Array.isArray(req.body?.leads) ? req.body.leads : [];
   writeJson(LEADS_FILE, { updatedAt: new Date().toISOString(), leads });
   return res.json({ ok: true, count: leads.length });
 });
 
-app.post('/api/campaign/next-email', requireAdmin, (req, res) => {
+app.post('/api/campaign/next-email', (req, res) => {
   const data = readJson(LEADS_FILE, { leads: [] });
   const state = readJson(STATE_FILE, { contacts: {} });
   const waitDays = parsePositiveNumber(req.body?.waitDays, 5);
@@ -319,7 +292,7 @@ app.post('/api/campaign/next-email', requireAdmin, (req, res) => {
   return res.json({ ok: true, lead: null, emailDraft: null, message: 'No eligible leads found.' });
 });
 
-app.post('/api/campaign/mark-sent', requireAdmin, (req, res) => {
+app.post('/api/campaign/mark-sent', (req, res) => {
   const email = safeString(req.body?.email, 160).toLowerCase();
   if (!email) return res.status(400).json({ error: 'email is required' });
   const state = readJson(STATE_FILE, { contacts: {} });
@@ -331,7 +304,7 @@ app.post('/api/campaign/mark-sent', requireAdmin, (req, res) => {
   return res.json({ ok: true, email, sendCount: state.contacts[email].sendCount });
 });
 
-app.post('/api/campaign/mark-replied', requireAdmin, (req, res) => {
+app.post('/api/campaign/mark-replied', (req, res) => {
   const email = safeString(req.body?.email, 160).toLowerCase();
   if (!email) return res.status(400).json({ error: 'email is required' });
   const state = readJson(STATE_FILE, { contacts: {} });

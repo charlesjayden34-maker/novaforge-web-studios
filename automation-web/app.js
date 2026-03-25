@@ -1,8 +1,4 @@
-const storageKeys = {
-  apiBase: 'ar_api_base',
-  token: 'ar_token',
-  user: 'ar_user'
-};
+const API_BASE = 'https://novaforge-api.onrender.com';
 
 const state = {
   leads: [],
@@ -10,13 +6,8 @@ const state = {
 };
 
 const els = {
-  apiBase: document.getElementById('apiBase'),
-  email: document.getElementById('email'),
-  password: document.getElementById('password'),
   authStatus: document.getElementById('authStatus'),
   discoverStatus: document.getElementById('discoverStatus'),
-  loginForm: document.getElementById('loginForm'),
-  logoutBtn: document.getElementById('logoutBtn'),
   discoverForm: document.getElementById('discoverForm'),
   saveLeadsBtn: document.getElementById('saveLeadsBtn'),
   downloadCsvBtn: document.getElementById('downloadCsvBtn'),
@@ -29,18 +20,6 @@ const els = {
   nextDraftOutput: document.getElementById('nextDraftOutput')
 };
 
-function normalizeBase(url) {
-  return String(url || '').trim().replace(/\/+$/, '');
-}
-
-function getToken() {
-  return localStorage.getItem(storageKeys.token) || '';
-}
-
-function getApiBase() {
-  return normalizeBase(els.apiBase.value || localStorage.getItem(storageKeys.apiBase) || '');
-}
-
 function setAuthStatus(msg, isError = false) {
   els.authStatus.textContent = msg;
   els.authStatus.style.color = isError ? '#fda4af' : '#94a3b8';
@@ -52,14 +31,10 @@ function setDiscoverStatus(msg, isError = false) {
 }
 
 async function apiFetch(path, options = {}) {
-  const base = getApiBase();
-  if (!base) throw new Error('Set API base URL first.');
-  const token = getToken();
-  const res = await fetch(`${base}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {})
     }
   });
@@ -92,7 +67,7 @@ function csvFromLeads(leads, generatedByIndex) {
       toCsvCell(lead.ownerName),
       toCsvCell(lead.email),
       toCsvCell(lead.phone),
-      toCsvCell('false'),
+      toCsvCell('true'),
       toCsvCell('false'),
       toCsvCell(String(lead.hasWebsite)),
       toCsvCell(lead.location),
@@ -104,42 +79,15 @@ function csvFromLeads(leads, generatedByIndex) {
   return [header, ...rows].join('\n');
 }
 
-async function login(e) {
-  e.preventDefault();
-  const base = getApiBase();
-  localStorage.setItem(storageKeys.apiBase, base);
-  try {
-    const data = await apiFetch('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: els.email.value.trim(),
-        password: els.password.value
-      }),
-      headers: {}
-    });
-    localStorage.setItem(storageKeys.token, data.token);
-    localStorage.setItem(storageKeys.user, JSON.stringify(data.user || {}));
-    setAuthStatus(`Signed in as ${data.user?.email || 'admin'}`);
-  } catch (err) {
-    setAuthStatus(err.message, true);
-  }
-}
-
-function logout() {
-  localStorage.removeItem(storageKeys.token);
-  localStorage.removeItem(storageKeys.user);
-  setAuthStatus('Logged out.');
-}
-
 async function discoverLeads(e) {
-  e.preventDefault();
-  setDiscoverStatus('Searching...');
+  if (e?.preventDefault) e.preventDefault();
+  setDiscoverStatus('Searching real businesses...');
   state.generatedByIndex = {};
   try {
     const data = await apiFetch('/api/research/discover', {
       method: 'POST',
       body: JSON.stringify({
-        location: els.location.value.trim(),
+        location: els.location.value.trim() || 'Bridgetown, Barbados',
         businessType: els.businessType.value.trim(),
         radiusKm: Number(els.radiusKm.value || 5),
         limit: Number(els.limit.value || 30)
@@ -149,7 +97,12 @@ async function discoverLeads(e) {
     renderLeads();
     els.downloadCsvBtn.disabled = state.leads.length === 0;
     els.saveLeadsBtn.disabled = state.leads.length === 0;
-    setDiscoverStatus(`Found ${state.leads.length} leads near ${data.location || ''}.`);
+    if (state.leads.length) {
+      await saveLeads(true);
+      setDiscoverStatus(`Found ${state.leads.length} businesses near ${data.location || ''}.`);
+    } else {
+      setDiscoverStatus('No leads found for this search. Try another location.');
+    }
   } catch (err) {
     state.leads = [];
     renderLeads();
@@ -177,21 +130,23 @@ async function generateForLead(index) {
 function copyEmail(index) {
   const generated = state.generatedByIndex[index];
   if (!generated) return;
-  navigator.clipboard
-    .writeText(`Subject: ${generated.subject}\n\n${generated.text}`)
-    .catch(() => {});
+  navigator.clipboard.writeText(`Subject: ${generated.subject}\n\n${generated.text}`).catch(() => {});
 }
 
-async function saveLeads() {
+async function saveLeads(silent = false) {
   try {
-    const leads = state.leads.map((lead) => ({ ...lead, optIn: false, replied: false }));
+    const leads = state.leads.map((lead) => ({ ...lead, optIn: true, replied: false }));
     const data = await apiFetch('/api/campaign/save-leads', {
       method: 'POST',
       body: JSON.stringify({ leads })
     });
-    setDiscoverStatus(`Saved ${data.count || 0} leads to campaign queue.`);
+    if (!silent) {
+      setDiscoverStatus(`Saved ${data.count || 0} leads to the campaign queue.`);
+    }
   } catch (err) {
-    setDiscoverStatus(err.message, true);
+    if (!silent) {
+      setDiscoverStatus(err.message, true);
+    }
   }
 }
 
@@ -251,24 +206,12 @@ function renderLeads() {
 }
 
 function init() {
-  els.apiBase.value = localStorage.getItem(storageKeys.apiBase) || 'https://novaforge-api.onrender.com';
-  const userRaw = localStorage.getItem(storageKeys.user);
-  if (getToken() && userRaw) {
-    try {
-      const user = JSON.parse(userRaw);
-      setAuthStatus(`Signed in as ${user?.email || 'admin'}`);
-    } catch {
-      setAuthStatus('Ready.');
-    }
-  } else {
-    setAuthStatus('Not signed in.');
-  }
+  setAuthStatus('Connected in auto mode (no login required).');
+  discoverLeads({ preventDefault() {} });
 }
 
-els.loginForm.addEventListener('submit', login);
-els.logoutBtn.addEventListener('click', logout);
 els.discoverForm.addEventListener('submit', discoverLeads);
-els.saveLeadsBtn.addEventListener('click', saveLeads);
+els.saveLeadsBtn.addEventListener('click', () => saveLeads(false));
 els.downloadCsvBtn.addEventListener('click', downloadCsv);
 els.nextDraftBtn.addEventListener('click', getNextDraft);
 
