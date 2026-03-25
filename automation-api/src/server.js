@@ -12,7 +12,8 @@ const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const WORLD_CACHE_FILE = path.join(DATA_DIR, 'world-cache.json');
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter'
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.ru/cgi/interpreter'
 ];
 const WORLD_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -254,7 +255,7 @@ async function discoverWorldwide({ businessType, limit }) {
   const seen = new Set();
   const scannedRegions = [];
   const startedAt = Date.now();
-  const maxScanMs = 12000;
+  const maxScanMs = 25000;
 
   for (const city of WORLD_CITIES) {
     if (Date.now() - startedAt > maxScanMs) break;
