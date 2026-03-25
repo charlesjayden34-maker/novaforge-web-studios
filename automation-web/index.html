@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Automation Research Console</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="hero">
+        <h1>Automation Research Console</h1>
+        <p>
+          Standalone app for finding businesses without websites and preparing personalized automated outreach.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>Admin Login</h2>
+        <p class="muted">This is separate from your website-making app.</p>
+        <form id="loginForm" class="grid">
+          <label>
+            API base URL
+            <input id="apiBase" type="url" placeholder="https://automation-research-api.onrender.com" required />
+          </label>
+          <label>
+            Admin email
+            <input id="email" type="email" required />
+          </label>
+          <label>
+            Admin password
+            <input id="password" type="password" required />
+          </label>
+          <div class="row">
+            <button type="submit">Sign in</button>
+            <button type="button" id="logoutBtn" class="secondary">Log out</button>
+          </div>
+          <p id="authStatus" class="status"></p>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Lead Discovery</h2>
+        <form id="discoverForm" class="grid">
+          <label>
+            Location
+            <input id="location" placeholder="Bridgetown, Barbados" required />
+          </label>
+          <label>
+            Business type (optional)
+            <input id="businessType" placeholder="barber, plumber, bakery" />
+          </label>
+          <label>
+            Radius (km)
+            <input id="radiusKm" type="number" min="1" max="30" value="5" />
+          </label>
+          <label>
+            Max leads
+            <input id="limit" type="number" min="1" max="120" value="30" />
+          </label>
+          <div class="row">
+            <button type="submit">Find leads</button>
+            <button type="button" id="saveLeadsBtn" class="secondary" disabled>Save leads to campaign queue</button>
+            <button type="button" id="downloadCsvBtn" class="secondary" disabled>Download CSV</button>
+          </div>
+          <p id="discoverStatus" class="status"></p>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Next Automated Draft</h2>
+        <p class="muted">For Cursor/chat sender: pull one eligible draft at a time.</p>
+        <button id="nextDraftBtn" type="button">Get next eligible email</button>
+        <pre id="nextDraftOutput" class="json"></pre>
+      </section>
+
+      <section class="card">
+        <h2>Leads</h2>
+        <div class="tableWrap">
+          <table id="leadsTable">
+            <thead>
+              <tr>
+                <th>Business</th>
+                <th>Owner</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Location</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>

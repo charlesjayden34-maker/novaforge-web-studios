@@ -11,6 +11,10 @@
 !frontend/**
 !lead-automation-site/
 !lead-automation-site/**
+!automation-api/
+!automation-api/**
+!automation-web/
+!automation-web/**
 
 # Ignore generated/runtime artifacts inside included directories.
 backend/node_modules/
@@ -33,3 +37,9 @@ frontend/yarn-error.log*
 backend/scripts/campaign-state.json
 backend/scripts/campaign-report-latest.json
 backend/scripts/campaign-send-log.csv
+
+automation-api/node_modules/
+automation-api/.env
+automation-api/.env.*
+!automation-api/.env.example
+automation-api/data/
