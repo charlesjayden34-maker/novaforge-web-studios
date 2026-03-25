@@ -191,6 +191,8 @@ async function discoverAroundCoordinates({ lat, lon, locationLabel, businessType
   const radiusMeters = Math.min(Math.round(radiusKm * 1000), 30000);
   const maxRows = Math.min(Math.max(Math.floor(limit), 1), 80);
   const typeRegex = safeString(businessType, 60).replace(/[^a-z0-9\s&\-]/gi, '');
+  const contactRequirement =
+    '[~"^(email|contact:email|phone|contact:phone|phone:mobile|mobile|contact:mobile|contact:whatsapp|whatsapp|contact:instagram|instagram|contact:facebook|facebook)$"~"."]';
   const tagFilters = typeRegex
     ? [`["shop"~"${typeRegex}",i]`, `["amenity"~"${typeRegex}",i]`, `["office"~"${typeRegex}",i]`]
     : ['["shop"]', '["amenity"]', '["office"]', '["craft"]', '["tourism"]', '["leisure"]'];
@@ -198,13 +200,13 @@ async function discoverAroundCoordinates({ lat, lon, locationLabel, businessType
   const selectors = [];
   for (const filter of tagFilters) {
     selectors.push(
-      `  node(around:${radiusMeters},${lat},${lon})["name"]${filter}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
+      `  node(around:${radiusMeters},${lat},${lon})["name"]${filter}${contactRequirement}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
     );
     selectors.push(
-      `  way(around:${radiusMeters},${lat},${lon})["name"]${filter}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
+      `  way(around:${radiusMeters},${lat},${lon})["name"]${filter}${contactRequirement}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
     );
     selectors.push(
-      `  relation(around:${radiusMeters},${lat},${lon})["name"]${filter}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
+      `  relation(around:${radiusMeters},${lat},${lon})["name"]${filter}${contactRequirement}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
     );
   }
 
