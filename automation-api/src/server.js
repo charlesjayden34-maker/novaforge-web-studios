@@ -9,8 +9,20 @@ const app = express();
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const LEADS_FILE = path.join(DATA_DIR, 'leads.json');
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+const WORLD_CACHE_FILE = path.join(DATA_DIR, 'world-cache.json');
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const WORLD_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+const WORLD_CITIES = [
+  { label: 'New York, USA', lat: 40.7128, lon: -74.006 },
+  { label: 'London, UK', lat: 51.5072, lon: -0.1276 },
+  { label: 'Toronto, Canada', lat: 43.6532, lon: -79.3832 },
+  { label: 'Sao Paulo, Brazil', lat: -23.5505, lon: -46.6333 },
+  { label: 'Lagos, Nigeria', lat: 6.5244, lon: 3.3792 },
+  { label: 'Dubai, UAE', lat: 25.2048, lon: 55.2708 },
+  { label: 'Mumbai, India', lat: 19.076, lon: 72.8777 },
+  { label: 'Sydney, Australia', lat: -33.8688, lon: 151.2093 }
+];
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -21,7 +33,7 @@ app.use(
 );
 app.use(express.json({ limit: '1mb' }));
 
-function safeString(value, max = 160) {
+function safeString(value, max = 200) {
   return String(value || '')
     .trim()
     .slice(0, max);
@@ -34,6 +46,10 @@ function boolish(v) {
 function parsePositiveNumber(value, fallback) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function readJson(filePath, fallback) {
@@ -63,13 +79,14 @@ function buildAddress(tags) {
   return firstNonEmpty([line1, line2]);
 }
 
-function getLeadFromElement(element) {
+function getLeadFromElement(element, fallbackLocationLabel) {
   const tags = element.tags || {};
   const lat = Number(element?.lat || element?.center?.lat);
   const lon = Number(element?.lon || element?.center?.lon);
   const businessName = firstNonEmpty([tags.name, tags.brand, tags.operator, tags.official_name]);
   if (!businessName || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
+  const location = buildAddress(tags) || fallbackLocationLabel;
   return {
     businessName,
     ownerName: firstNonEmpty([tags.owner, tags['contact:person'], tags.operator]),
@@ -81,7 +98,8 @@ function getLeadFromElement(element) {
       tags.mobile,
       tags['contact:mobile']
     ]),
-    location: buildAddress(tags),
+    location,
+    sourceRegion: fallbackLocationLabel,
     hasWebsite: false,
     source: 'openstreetmap',
     lat,
@@ -103,29 +121,15 @@ async function fetchJson(url, options = {}) {
   if (!response.ok) {
     const text = await response.text().catch(() => '');
     const err = new Error(text || `Request failed (${response.status})`);
-    err.statusCode = response.status >= 400 && response.status < 500 ? 400 : 502;
+    err.statusCode = response.status === 429 ? 429 : response.status >= 400 && response.status < 500 ? 400 : 502;
     throw err;
   }
   return response.json();
 }
 
-async function geocodeLocation(location) {
-  const query = new URLSearchParams({ q: location, format: 'jsonv2', limit: '1' });
-  const result = await fetchJson(`${NOMINATIM_URL}?${query.toString()}`);
-  if (!Array.isArray(result) || result.length === 0) return null;
-  const first = result[0];
-  const lat = Number(first.lat);
-  const lon = Number(first.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return { lat, lon, displayName: safeString(first.display_name, 220) };
-}
-
-async function discoverLeads({ location, businessType, radiusKm, limit }) {
-  const geo = await geocodeLocation(location);
-  if (!geo) return { location: '', leads: [] };
-
+async function discoverAroundCoordinates({ lat, lon, locationLabel, businessType, radiusKm, limit }) {
   const radiusMeters = Math.min(Math.round(radiusKm * 1000), 30000);
-  const maxRows = Math.min(Math.max(Math.floor(limit), 1), 120);
+  const maxRows = Math.min(Math.max(Math.floor(limit), 1), 80);
   const typeRegex = safeString(businessType, 60).replace(/[^a-z0-9\s&\-]/gi, '');
   const tagFilters = typeRegex
     ? [`["shop"~"${typeRegex}",i]`, `["amenity"~"${typeRegex}",i]`, `["office"~"${typeRegex}",i]`]
@@ -134,13 +138,13 @@ async function discoverLeads({ location, businessType, radiusKm, limit }) {
   const selectors = [];
   for (const filter of tagFilters) {
     selectors.push(
-      `  node(around:${radiusMeters},${geo.lat},${geo.lon})["name"]${filter}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
+      `  node(around:${radiusMeters},${lat},${lon})["name"]${filter}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
     );
     selectors.push(
-      `  way(around:${radiusMeters},${geo.lat},${geo.lon})["name"]${filter}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
+      `  way(around:${radiusMeters},${lat},${lon})["name"]${filter}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
     );
     selectors.push(
-      `  relation(around:${radiusMeters},${geo.lat},${geo.lon})["name"]${filter}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
+      `  relation(around:${radiusMeters},${lat},${lon})["name"]${filter}["website"!~"."]["contact:website"!~"."]["url"!~"."];`
     );
   }
 
@@ -160,12 +164,86 @@ out center tags ${maxRows};
 
   const unique = new Map();
   for (const element of Array.isArray(data.elements) ? data.elements : []) {
-    const lead = getLeadFromElement(element);
+    const lead = getLeadFromElement(element, locationLabel);
     if (!lead) continue;
     const key = `${lead.businessName.toLowerCase()}-${lead.lat.toFixed(4)}-${lead.lon.toFixed(4)}`;
     if (!unique.has(key)) unique.set(key, lead);
   }
-  return { location: geo.displayName, leads: Array.from(unique.values()).slice(0, maxRows) };
+  return Array.from(unique.values()).slice(0, maxRows);
+}
+
+function loadWorldCache() {
+  const cache = readJson(WORLD_CACHE_FILE, null);
+  if (!cache || !Array.isArray(cache.leads)) return null;
+  return cache;
+}
+
+function cacheFresh(cache) {
+  if (!cache?.updatedAt) return false;
+  const ts = new Date(cache.updatedAt).getTime();
+  if (Number.isNaN(ts)) return false;
+  return Date.now() - ts < WORLD_CACHE_TTL_MS;
+}
+
+async function discoverWorldwide({ businessType, limit }) {
+  const cached = loadWorldCache();
+  if (cached && cacheFresh(cached)) {
+    return { leads: cached.leads.slice(0, limit), source: 'cache_fresh', scannedRegions: cached.scannedRegions || [] };
+  }
+
+  const combined = [];
+  const seen = new Set();
+  const scannedRegions = [];
+
+  for (const city of WORLD_CITIES) {
+    if (combined.length >= limit) break;
+    try {
+      const leads = await discoverAroundCoordinates({
+        lat: city.lat,
+        lon: city.lon,
+        locationLabel: city.label,
+        businessType,
+        radiusKm: 8,
+        limit: 25
+      });
+      scannedRegions.push(city.label);
+      for (const lead of leads) {
+        const key = `${lead.businessName.toLowerCase()}-${lead.lat.toFixed(4)}-${lead.lon.toFixed(4)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        combined.push(lead);
+        if (combined.length >= limit) break;
+      }
+      await sleep(900);
+    } catch (err) {
+      if (Number(err?.statusCode) === 429) {
+        if (cached?.leads?.length) {
+          return {
+            leads: cached.leads.slice(0, limit),
+            source: 'cache_stale_fallback',
+            scannedRegions: cached.scannedRegions || [],
+            warning: 'Using cached results due to temporary upstream rate limits.'
+          };
+        }
+        return {
+          leads: [],
+          source: 'rate_limited',
+          scannedRegions,
+          warning: 'Upstream provider rate-limited requests. Please retry shortly.'
+        };
+      }
+    }
+  }
+
+  if (combined.length) {
+    writeJson(WORLD_CACHE_FILE, {
+      updatedAt: new Date().toISOString(),
+      scannedRegions,
+      leads: combined
+    });
+  }
+
+  return { leads: combined.slice(0, limit), source: 'live_scan', scannedRegions };
 }
 
 function buildEmailDraft(lead, sendCount = 1) {
@@ -215,27 +293,19 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/auth/login', (req, res) => {
-  const email = safeString(req.body?.email, 120).toLowerCase();
-  const password = String(req.body?.password || '');
-  const adminEmail = safeString(process.env.ADMIN_EMAIL, 120).toLowerCase();
-  const adminPassword = String(process.env.ADMIN_PASSWORD || '');
-  if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
-  if (email !== adminEmail || password !== adminPassword) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
-  return res.json({ ok: true, user: { email, role: 'admin', name: 'Automation Admin' } });
-});
-
 app.post('/api/research/discover', async (req, res, next) => {
   try {
-    const location = safeString(req.body?.location, 120);
-    if (!location) return res.status(400).json({ error: 'location is required' });
-    const radiusKm = parsePositiveNumber(req.body?.radiusKm, 5);
-    const limit = parsePositiveNumber(req.body?.limit, 30);
+    const limit = parsePositiveNumber(req.body?.limit, 40);
     const businessType = safeString(req.body?.businessType, 60);
-    const result = await discoverLeads({ location, businessType, radiusKm, limit });
-    return res.json({ location: result.location, count: result.leads.length, leads: result.leads });
+    const result = await discoverWorldwide({ businessType, limit });
+    return res.json({
+      locationMode: 'worldwide',
+      scannedRegions: result.scannedRegions,
+      source: result.source,
+      warning: result.warning || '',
+      count: result.leads.length,
+      leads: result.leads
+    });
   } catch (e) {
     next(e);
   }

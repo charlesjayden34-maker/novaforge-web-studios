@@ -11,9 +11,7 @@ const els = {
   discoverForm: document.getElementById('discoverForm'),
   saveLeadsBtn: document.getElementById('saveLeadsBtn'),
   downloadCsvBtn: document.getElementById('downloadCsvBtn'),
-  location: document.getElementById('location'),
   businessType: document.getElementById('businessType'),
-  radiusKm: document.getElementById('radiusKm'),
   limit: document.getElementById('limit'),
   leadsTableBody: document.querySelector('#leadsTable tbody'),
   nextDraftBtn: document.getElementById('nextDraftBtn'),
@@ -87,9 +85,7 @@ async function discoverLeads(e) {
     const data = await apiFetch('/api/research/discover', {
       method: 'POST',
       body: JSON.stringify({
-        location: els.location.value.trim() || 'Bridgetown, Barbados',
         businessType: els.businessType.value.trim(),
-        radiusKm: Number(els.radiusKm.value || 5),
         limit: Number(els.limit.value || 30)
       })
     });
