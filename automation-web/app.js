@@ -251,7 +251,7 @@ function renderLeads() {
 }
 
 function init() {
-  els.apiBase.value = localStorage.getItem(storageKeys.apiBase) || 'https://automation-research-api.onrender.com';
+  els.apiBase.value = localStorage.getItem(storageKeys.apiBase) || 'https://novaforge-api.onrender.com';
   const userRaw = localStorage.getItem(storageKeys.user);
   if (getToken() && userRaw) {
     try {
