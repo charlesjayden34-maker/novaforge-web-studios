@@ -10,7 +10,10 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const LEADS_FILE = path.join(DATA_DIR, 'leads.json');
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 const WORLD_CACHE_FILE = path.join(DATA_DIR, 'world-cache.json');
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter'
+];
 const WORLD_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 const WORLD_CITIES = [
@@ -21,7 +24,11 @@ const WORLD_CITIES = [
   { label: 'Lagos, Nigeria', lat: 6.5244, lon: 3.3792 },
   { label: 'Dubai, UAE', lat: 25.2048, lon: 55.2708 },
   { label: 'Mumbai, India', lat: 19.076, lon: 72.8777 },
-  { label: 'Sydney, Australia', lat: -33.8688, lon: 151.2093 }
+  { label: 'Sydney, Australia', lat: -33.8688, lon: 151.2093 },
+  { label: 'Singapore', lat: 1.3521, lon: 103.8198 },
+  { label: 'Johannesburg, South Africa', lat: -26.2041, lon: 28.0473 },
+  { label: 'Mexico City, Mexico', lat: 19.4326, lon: -99.1332 },
+  { label: 'Paris, France', lat: 48.8566, lon: 2.3522 }
 ];
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -77,6 +84,30 @@ function isLikelyEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }
 
+function looksLikePhone(value) {
+  const raw = String(value || '').replace(/[^\d+]/g, '');
+  return raw.length >= 7;
+}
+
+function firstContactMethod(lead) {
+  if (isLikelyEmail(lead.email)) return { type: 'email', value: lead.email };
+  if (looksLikePhone(lead.phone)) return { type: 'phone', value: lead.phone };
+  if (safeString(lead.whatsapp, 80)) return { type: 'whatsapp', value: lead.whatsapp };
+  if (safeString(lead.instagram, 120)) return { type: 'instagram', value: lead.instagram };
+  if (safeString(lead.facebook, 120)) return { type: 'facebook', value: lead.facebook };
+  return { type: 'listing', value: lead.mapsUrl || '' };
+}
+
+function isContactableLead(lead) {
+  return (
+    isLikelyEmail(lead.email) ||
+    looksLikePhone(lead.phone) ||
+    !!safeString(lead.whatsapp, 80) ||
+    !!safeString(lead.instagram, 120) ||
+    !!safeString(lead.facebook, 120)
+  );
+}
+
 function buildAddress(tags) {
   const line1 = [tags['addr:housenumber'], tags['addr:street']].filter(Boolean).join(' ');
   const line2 = [tags['addr:city'], tags['addr:state'], tags['addr:country']].filter(Boolean).join(', ');
@@ -91,6 +122,9 @@ function getLeadFromElement(element, fallbackLocationLabel) {
   if (!businessName || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
   const location = buildAddress(tags) || fallbackLocationLabel;
+  const instagram = firstNonEmpty([tags['contact:instagram'], tags.instagram]);
+  const facebook = firstNonEmpty([tags['contact:facebook'], tags.facebook]);
+  const whatsapp = firstNonEmpty([tags['contact:whatsapp'], tags.whatsapp]);
   return {
     businessName,
     ownerName: firstNonEmpty([tags.owner, tags['contact:person'], tags.operator]),
@@ -102,6 +136,9 @@ function getLeadFromElement(element, fallbackLocationLabel) {
       tags.mobile,
       tags['contact:mobile']
     ]),
+    whatsapp,
+    instagram,
+    facebook,
     location,
     sourceRegion: fallbackLocationLabel,
     hasWebsite: false,
@@ -129,6 +166,23 @@ async function fetchJson(url, options = {}) {
     throw err;
   }
   return response.json();
+}
+
+async function fetchOverpassWithFallback(payloadBody) {
+  let lastError = null;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      return await fetchJson(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: payloadBody
+      });
+    } catch (err) {
+      lastError = err;
+      if (Number(err?.statusCode) === 429) continue;
+    }
+  }
+  throw lastError || new Error('All overpass endpoints failed');
 }
 
 async function discoverAroundCoordinates({ lat, lon, locationLabel, businessType, radiusKm, limit }) {
@@ -160,11 +214,7 @@ ${selectors.join('\n')}
 out center tags ${maxRows};
 `;
   const payload = new URLSearchParams({ data: query });
-  const data = await fetchJson(OVERPASS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: payload.toString()
-  });
+  const data = await fetchOverpassWithFallback(payload.toString());
 
   const unique = new Map();
   for (const element of Array.isArray(data.elements) ? data.elements : []) {
@@ -173,9 +223,7 @@ out center tags ${maxRows};
     const key = `${lead.businessName.toLowerCase()}-${lead.lat.toFixed(4)}-${lead.lon.toFixed(4)}`;
     if (!unique.has(key)) unique.set(key, lead);
   }
-  return Array.from(unique.values())
-    .filter((lead) => isLikelyEmail(lead.email))
-    .slice(0, maxRows);
+  return Array.from(unique.values()).filter((lead) => isContactableLead(lead)).slice(0, maxRows);
 }
 
 function loadWorldCache() {
@@ -314,7 +362,10 @@ app.post('/api/research/discover', async (req, res, next) => {
       source: result.source,
       warning: result.warning || '',
       count: result.leads.length,
-      leads: result.leads
+      leads: result.leads.map((lead) => ({
+        ...lead,
+        preferredContact: firstContactMethod(lead)
+      }))
     });
   } catch (e) {
     next(e);

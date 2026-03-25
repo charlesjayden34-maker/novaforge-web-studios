@@ -48,8 +48,13 @@ function csvFromLeads(leads, generatedByIndex) {
   const header = [
     'businessName',
     'ownerName',
+    'preferredContactType',
+    'preferredContactValue',
     'email',
     'phone',
+    'whatsapp',
+    'instagram',
+    'facebook',
     'optIn',
     'replied',
     'hasWebsite',
@@ -62,8 +67,13 @@ function csvFromLeads(leads, generatedByIndex) {
     [
       toCsvCell(lead.businessName),
       toCsvCell(lead.ownerName),
+      toCsvCell(lead.preferredContact?.type || ''),
+      toCsvCell(lead.preferredContact?.value || ''),
       toCsvCell(lead.email),
       toCsvCell(lead.phone),
+      toCsvCell(lead.whatsapp),
+      toCsvCell(lead.instagram),
+      toCsvCell(lead.facebook),
       toCsvCell('true'),
       toCsvCell('false'),
       toCsvCell(String(lead.hasWebsite)),
@@ -93,7 +103,7 @@ async function discoverLeads(e) {
     els.saveLeadsBtn.disabled = state.leads.length === 0;
     if (state.leads.length) {
       await saveLeads(true);
-      setDiscoverStatus(`Found ${state.leads.length} worldwide businesses with public email addresses.`);
+      setDiscoverStatus(`Found ${state.leads.length} worldwide businesses with contact methods.`);
     } else {
       setDiscoverStatus('No email-qualified leads found right now. Please retry in a few minutes.');
     }
@@ -172,10 +182,13 @@ function renderLeads() {
   els.leadsTableBody.innerHTML = '';
   state.leads.forEach((lead, index) => {
     const generated = state.generatedByIndex[index];
+    const bestType = lead.preferredContact?.type || 'listing';
+    const bestValue = lead.preferredContact?.value || lead.mapsUrl || '';
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${lead.businessName || ''}</td>
       <td>${lead.ownerName || 'Not listed'}</td>
+      <td>${bestType}: ${bestValue || 'Not listed'}</td>
       <td>${lead.email || 'Not listed'}</td>
       <td>${lead.phone || 'Not listed'}</td>
       <td>${lead.location || ''}</td>
