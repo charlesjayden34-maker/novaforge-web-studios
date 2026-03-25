@@ -89,7 +89,7 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
-    plan: starter
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
@@ -116,7 +116,7 @@ services:
     rootDir: automation-web
     buildCommand: echo "No build step required"
     staticPublishPath: .
-    plan: starter
+    plan: free
     routes:
       - type: rewrite
         source: /*
