@@ -23,6 +23,9 @@ See `.env.example`. Required: `MONGODB_URI`, `JWT_SECRET`. For email: SMTP vars 
 - `POST /api/payments/create-intent`
 - `POST /api/stripe/webhook` (raw body)
 - `GET/PATCH /api/admin/*` (admin JWT)
+- `POST /api/leads/discover` · `POST /api/leads/generate-email` (auth)
+- `POST /api/campaign/next-email` · `POST /api/campaign/mark-sent` · `POST /api/campaign/mark-replied` (admin auth)
+- `GET /api/campaign/deliverability-check` (admin auth)
 
 ## Outreach Automation
 
@@ -39,6 +42,9 @@ Safety defaults:
 - stops automatically when `replied=true` (CSV) or marked in state
 - optional IMAP sync auto-marks contacts as replied when inbound mail is detected
 - optional popular-hours sending window filter (weekdays 9-11am and 1-4pm in lead timezone)
+- role-address suppression by default (`info@`, `support@`, etc.) to reduce spam risk
+- per-send random delay jitter + max sends per contact guard
+- DNS auth check logging for SPF/DMARC/DKIM before live sends
 
 CSV format (`scripts/leads.csv`):
 
@@ -46,6 +52,18 @@ CSV format (`scripts/leads.csv`):
 businessName,ownerName,email,optIn,replied,hasWebsite,timezone
 Sample Barbershop,John Doe,owner@example.com,true,false,false,America/Barbados
 ```
+
+Optional personalization/template columns:
+
+```csv
+location,mapsUrl,subject,emailBody,followUpSubject,followUpBody
+```
+
+Template placeholders supported in `subject/emailBody`:
+
+- `{{ownerName}}`, `{{businessName}}`, `{{location}}`, `{{mapsUrl}}`
+- `{{serviceAngle}}`, `{{portfolioUrl}}`
+- `{{senderName}}`, `{{senderRole}}`, `{{senderCompany}}`, `{{senderEmail}}`
 
 Run examples:
 
@@ -67,6 +85,12 @@ npm run campaign:send -- --file scripts/leads.csv --send --imap-lookback-days 45
 
 # Disable popular-hours filter for this run
 npm run campaign:send -- --file scripts/leads.csv --send --popular-hours-only false
+
+# Conservative sender options
+npm run campaign:send -- --file scripts/leads.csv --send --max-sends-per-contact 2 --delay-ms 4000 --delay-jitter-ms 2000
+
+# Include role inboxes if intentionally desired
+npm run campaign:send -- --file scripts/leads.csv --send --allow-role-addresses true
 ```
 
 State file:
@@ -86,3 +110,14 @@ Popular-hours filter:
 - enabled by default (`CAMPAIGN_POPULAR_HOURS_ONLY=true`)
 - uses each lead `timezone` column if present, otherwise `CAMPAIGN_DEFAULT_TIMEZONE`
 - window: weekdays 09:00-11:00 and 13:00-16:00 local time
+
+### Integrating with another chat/sender
+
+If another service (like your website chat assistant) sends emails:
+
+1. Call `POST /api/campaign/next-email` to get the next eligible lead + personalized draft.
+2. Send using your external provider (Mailgun/Resend/SES/etc.).
+3. Call `POST /api/campaign/mark-sent` after successful provider response.
+4. Call `POST /api/campaign/mark-replied` when a reply is detected.
+
+This keeps follow-up timing, send counts, and stop-on-reply logic centralized while your other system handles actual delivery.
