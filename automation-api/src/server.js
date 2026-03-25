@@ -175,7 +175,8 @@ async function fetchOverpassWithFallback(payloadBody) {
       return await fetchJson(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: payloadBody
+        body: payloadBody,
+        signal: AbortSignal.timeout(9000)
       });
     } catch (err) {
       lastError = err;
@@ -252,8 +253,11 @@ async function discoverWorldwide({ businessType, limit }) {
   const combined = [];
   const seen = new Set();
   const scannedRegions = [];
+  const startedAt = Date.now();
+  const maxScanMs = 12000;
 
   for (const city of WORLD_CITIES) {
+    if (Date.now() - startedAt > maxScanMs) break;
     if (combined.length >= limit) break;
     try {
       const leads = await discoverAroundCoordinates({
@@ -272,7 +276,7 @@ async function discoverWorldwide({ businessType, limit }) {
         combined.push(lead);
         if (combined.length >= limit) break;
       }
-      await sleep(900);
+      await sleep(500);
     } catch (err) {
       if (Number(err?.statusCode) === 429) {
         if (cached?.leads?.length) {
@@ -299,6 +303,13 @@ async function discoverWorldwide({ businessType, limit }) {
       scannedRegions,
       leads: combined
     });
+  } else if (cached?.leads?.length) {
+    return {
+      leads: (cached.leads || []).filter((lead) => isContactableLead(lead)).slice(0, limit),
+      source: 'cache_stale_fallback',
+      scannedRegions: cached.scannedRegions || [],
+      warning: 'Using cached results while live scan warms up.'
+    };
   }
 
   return { leads: combined.slice(0, limit), source: 'live_scan', scannedRegions };
