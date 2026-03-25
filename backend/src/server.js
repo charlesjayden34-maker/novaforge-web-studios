@@ -74,7 +74,7 @@ connectDb()
   .then(() => {
     app.listen(port, () => {
       // eslint-disable-next-line no-console
-      console.log(`NovaForge API listening on :${port}`);
+      console.log(`Orvanta API listening on :${port}`);
     });
   })
   .catch((e) => {

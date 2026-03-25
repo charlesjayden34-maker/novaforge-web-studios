@@ -58,10 +58,10 @@ export const Landing = () => {
   return (
     <>
       <Helmet>
-        <title>NovaForge Web Studios · Freelance Web Development</title>
+        <title>Orvanta Studio · Freelance Web Development</title>
         <meta
           name="description"
-          content="NovaForge Web Studios builds modern websites and client portals for businesses that want to grow online with confidence."
+          content="Orvanta Studio builds modern websites and client portals for businesses that want to grow online with confidence."
         />
         <meta property="og:title" content={siteConfig.brand.name} />
         <meta
@@ -212,7 +212,7 @@ export const Landing = () => {
             <div>
               <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Clients</h2>
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                Partners who trusted NovaForge with their first impression online.
+                Partners who trusted Orvanta with their first impression online.
               </p>
             </div>
           </div>

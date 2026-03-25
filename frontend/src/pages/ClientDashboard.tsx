@@ -124,7 +124,7 @@ export const ClientDashboard = () => {
   return (
     <>
       <Helmet>
-        <title>Client dashboard · NovaForge Web Studios</title>
+        <title>Client dashboard · Orvanta Studio</title>
         <meta name="robots" content="noindex" />
       </Helmet>
       <div className="space-y-8 animate-fade-in">

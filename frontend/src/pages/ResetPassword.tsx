@@ -40,7 +40,7 @@ export const ResetPassword = () => {
   return (
     <>
       <Helmet>
-        <title>Set new password · NovaForge Web Studios</title>
+        <title>Set new password · Orvanta Studio</title>
         <meta name="robots" content="noindex" />
       </Helmet>
       <div className="max-w-md mx-auto space-y-6 animate-fade-in">

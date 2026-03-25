@@ -172,10 +172,10 @@ export const RequestPage = () => {
   return (
     <>
       <Helmet>
-        <title>Request a Website · NovaForge Web Studios</title>
+        <title>Request a Website · Orvanta Studio</title>
         <meta
           name="description"
-          content="Tell NovaForge about your project — scope, budget, and goals. We respond within one business day."
+          content="Tell Orvanta about your project - scope, budget, and goals. We respond within one business day."
         />
       </Helmet>
       <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">

@@ -1,5 +1,5 @@
 {
-  "name": "novaforge-web-studios-backend",
+  "name": "orvanta-studio-backend",
   "version": "1.0.0",
   "private": true,
   "main": "src/server.js",

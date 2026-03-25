@@ -35,7 +35,7 @@ export const AuthLogin = () => {
   return (
     <>
       <Helmet>
-        <title>Log in · NovaForge Web Studios</title>
+        <title>Log in · Orvanta Studio</title>
         <meta name="robots" content="noindex" />
       </Helmet>
       <div className="max-w-md mx-auto space-y-6 animate-fade-in">

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: novaforge-api
+    name: orvanta-api
     runtime: node
     rootDir: backend
     buildCommand: npm install
@@ -54,7 +54,7 @@ services:
         sync: false
 
   - type: web
-    name: novaforge-web
+    name: orvanta-web
     runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build

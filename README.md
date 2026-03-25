@@ -1,4 +1,4 @@
-# NovaForge Web Studios
+# Orvanta Studio
 
 Full-stack demo: **React + Tailwind** frontend, **Express + MongoDB** backend, **JWT** auth, **Nodemailer** notifications, **Stripe** payments.
 
@@ -66,8 +66,8 @@ This gives a temporary URL like `https://something.loca.lt`.
 
 This repo includes `render.yaml` with both services:
 
-- `novaforge-api` (Node backend from `backend/`)
-- `novaforge-web` (static frontend from `frontend/`)
+- `orvanta-api` (Node backend from `backend/`)
+- `orvanta-web` (static frontend from `frontend/`)
 
 Deploy flow:
 

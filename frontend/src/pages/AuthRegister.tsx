@@ -40,7 +40,7 @@ export const AuthRegister = () => {
   return (
     <>
       <Helmet>
-        <title>Register · NovaForge Web Studios</title>
+        <title>Register · Orvanta Studio</title>
         <meta name="robots" content="noindex" />
       </Helmet>
       <div className="max-w-md mx-auto space-y-6 animate-fade-in">

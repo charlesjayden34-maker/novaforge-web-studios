@@ -1,7 +1,7 @@
 export const siteConfig = {
   brand: {
-    name: 'NovaForge Web Studios',
-    shortName: 'NovaForge'
+    name: 'Orvanta Studio',
+    shortName: 'Orvanta'
   },
   contact: {
     name: 'Nathan Whittaker',

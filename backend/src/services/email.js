@@ -22,7 +22,7 @@ async function sendAdminNotification({ request }) {
   const transport = getTransport();
   if (!transport || !to || !from) return;
 
-  const subject = `New NovaForge request: ${request.projectType} (${request.websiteTier} - $${request.websitePrice})`;
+  const subject = `New Orvanta request: ${request.projectType} (${request.websiteTier} - $${request.websitePrice})`;
   const text = [
     'New client request received:',
     '',
@@ -51,9 +51,9 @@ async function sendPasswordResetEmail({ email, resetUrl }) {
   const transport = getTransport();
   if (!transport || !from) return false;
 
-  const subject = 'Reset your NovaForge password';
+  const subject = 'Reset your Orvanta password';
   const text = [
-    'We received a request to reset your NovaForge Web Studios password.',
+    'We received a request to reset your Orvanta Studio password.',
     '',
     'Use this link to set a new password:',
     resetUrl,

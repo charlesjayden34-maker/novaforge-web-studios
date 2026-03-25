@@ -34,7 +34,7 @@ export const ForgotPassword = () => {
   return (
     <>
       <Helmet>
-        <title>Forgot password · NovaForge Web Studios</title>
+        <title>Forgot password · Orvanta Studio</title>
         <meta name="robots" content="noindex" />
       </Helmet>
       <div className="max-w-md mx-auto space-y-6 animate-fade-in">

@@ -133,7 +133,7 @@ export const AdminDashboard = () => {
   return (
     <>
       <Helmet>
-        <title>Admin · NovaForge Web Studios</title>
+        <title>Admin · Orvanta Studio</title>
         <meta name="robots" content="noindex" />
       </Helmet>
       <div className="space-y-10 animate-fade-in">
