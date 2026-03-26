@@ -9,7 +9,6 @@ import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
 import { ClientDashboard } from './pages/ClientDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
-import { LeadFinder } from './pages/LeadFinder';
 
 function App() {
   return (
@@ -33,14 +32,6 @@ function App() {
           element={
             <ProtectedRoute>
               <ClientDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/lead-finder"
-          element={
-            <ProtectedRoute>
-              <LeadFinder />
             </ProtectedRoute>
           }
         />

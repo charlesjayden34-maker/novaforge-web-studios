@@ -69,11 +69,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 Dashboard
               </NavLink>
             )}
-            {user && (
-              <NavLink to="/lead-finder" className={navLinkClasses}>
-                Lead Finder
-              </NavLink>
-            )}
             {user?.role === 'admin' && (
               <NavLink to="/admin" className={navLinkClasses}>
                 Admin
@@ -135,11 +130,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               {user && (
                 <NavLink to="/dashboard" className={navLinkClasses} onClick={() => setMenuOpen(false)}>
                   Dashboard
-                </NavLink>
-              )}
-              {user && (
-                <NavLink to="/lead-finder" className={navLinkClasses} onClick={() => setMenuOpen(false)}>
-                  Lead Finder
                 </NavLink>
               )}
               {user?.role === 'admin' && (

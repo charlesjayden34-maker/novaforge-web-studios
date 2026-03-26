@@ -23,7 +23,6 @@ See `.env.example`. Required: `MONGODB_URI`, `JWT_SECRET`. For email: SMTP vars 
 - `POST /api/payments/create-intent`
 - `POST /api/stripe/webhook` (raw body)
 - `GET/PATCH /api/admin/*` (admin JWT)
-- `POST /api/leads/discover` · `POST /api/leads/generate-email` (auth)
 - `POST /api/campaign/next-email` · `POST /api/campaign/mark-sent` · `POST /api/campaign/mark-replied` (admin auth)
 - `GET /api/campaign/deliverability-check` (admin auth)
 

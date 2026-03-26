@@ -12,7 +12,6 @@ const { adminRouter } = require('./routes/admin');
 const { paymentsRouter } = require('./routes/payments');
 const { stripeWebhookHandler } = require('./routes/stripeWebhook');
 const { paypalRouter, paypalWebhookHandler } = require('./routes/paypal');
-const { leadsRouter } = require('./routes/leads');
 const { campaignRouter } = require('./routes/campaign');
 const { validateEnv } = require('./config/env');
 const { generalLimiter } = require('./middleware/rateLimit');
@@ -59,7 +58,6 @@ app.use('/api/requests', requestsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/paypal', paypalRouter);
-app.use('/api/leads', leadsRouter);
 app.use('/api/campaign', campaignRouter);
 
 app.use((err, _req, res, _next) => {

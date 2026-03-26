@@ -3,24 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lead Automation Console</title>
+    <title>Orvanta — Campaign console</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="container">
       <header class="hero">
-        <h1>Lead Automation Console</h1>
+        <h1>Campaign console</h1>
         <p>
-          Discover businesses without listed websites, generate personalized outreach emails,
-          and hand off automation-ready payloads to your other chat system.
+          Sign in to your Orvanta API, then pull the next eligible email draft for your outreach workflow.
+          Lead discovery was removed from the main app; this console no longer calls <code>/api/leads</code>.
         </p>
       </header>
 
       <section class="card">
         <h2>1) Authenticate</h2>
         <p class="muted">
-          This tool uses your existing API auth. Sign in once, then run lead discovery and
-          personalization.
+          Uses your existing API auth (<code>POST /api/auth/login</code>).
         </p>
         <form id="loginForm" class="grid">
           <label>
@@ -44,82 +43,14 @@
       </section>
 
       <section class="card">
-        <h2>2) Lead Discovery</h2>
-        <form id="discoverForm" class="grid">
-          <label>
-            Location
-            <input id="location" placeholder="Bridgetown, Barbados" required />
-          </label>
-          <label>
-            Business type (optional)
-            <input id="businessType" placeholder="barber, plumbing, bakery" />
-          </label>
-          <label>
-            Radius (km)
-            <input id="radiusKm" type="number" min="1" max="30" value="5" />
-          </label>
-          <label>
-            Max leads
-            <input id="limit" type="number" min="1" max="120" value="30" />
-          </label>
-          <div class="row">
-            <button type="submit">Find leads</button>
-            <button type="button" id="downloadCsvBtn" class="secondary" disabled>Download CSV</button>
-          </div>
-          <p id="discoverStatus" class="status"></p>
-        </form>
-      </section>
-
-      <section class="card">
-        <h2>3) Sender Profile</h2>
-        <form id="senderForm" class="grid">
-          <label>
-            Sender name
-            <input id="senderName" placeholder="Your assistant name" />
-          </label>
-          <label>
-            Sender business
-            <input id="senderBusiness" placeholder="Your brand name" />
-          </label>
-          <label>
-            Portfolio URL
-            <input id="senderWebsite" placeholder="https://your-site.com" />
-          </label>
-          <label>
-            Custom call to action
-            <input id="senderCta" placeholder="Would you like a quick homepage plan?" />
-          </label>
-        </form>
-      </section>
-
-      <section class="card">
-        <h2>4) Campaign Handoff (Admin)</h2>
+        <h2>2) Campaign draft (admin)</h2>
         <p class="muted">
-          Use this to feed your other chat system one eligible personalized email draft at a time.
+          Calls <code>POST /api/campaign/next-email</code> — requires an admin JWT from login.
         </p>
         <div class="row">
           <button id="nextDraftBtn" type="button">Get next eligible draft</button>
         </div>
         <pre id="nextDraftOutput" class="json"></pre>
-      </section>
-
-      <section class="card">
-        <h2>Leads</h2>
-        <div class="tableWrap">
-          <table id="leadsTable">
-            <thead>
-              <tr>
-                <th>Business</th>
-                <th>Owner</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Location</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
       </section>
     </main>
 

@@ -1,30 +1,20 @@
-# Lead Automation Site
+# Campaign console (static)
 
-Standalone website dedicated to:
+Small static page to:
 
-- discovering businesses with no listed website
-- generating personalized outreach emails
-- exporting CSV templates for campaign workflows
-- pulling next eligible draft from `/api/campaign/next-email` for chat-based sending
+- Sign in against your Orvanta API (`POST /api/auth/login`)
+- Call `POST /api/campaign/next-email` (admin) for the next eligible outreach draft
+
+Lead discovery (`/api/leads/*`) was removed from the main app; this console no longer uses those endpoints.
 
 ## Local run
-
-Because this site is plain HTML/CSS/JS, you can serve it with any static server.
-
-Example:
 
 ```bash
 npx serve lead-automation-site -l 5180
 ```
 
-Then open:
+Open `http://localhost:5180` and set **API base URL** to your backend (e.g. `https://orvanta-api.onrender.com`).
 
-`http://localhost:5180`
+## Deploy
 
-## Production deploy
-
-`render.yaml` includes a static service:
-
-- `lead-automation-web` (root: `lead-automation-site/`)
-
-After deploy, set your API base URL in the app to your live backend domain.
+If you add a Render static service for this folder, set the API base in the UI after deploy (or bake a default in `app.js`).
